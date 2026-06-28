@@ -7,13 +7,13 @@ export function ContactRow({
   name,
   preview,
   lastMessageAt,
-  active,
+  selected,
 }: {
   href: string;
   name: string;
   preview?: string | null;
   lastMessageAt?: string | null;
-  active?: boolean;
+  selected?: boolean;
 }) {
   const timeLabel = lastMessageAt
     ? formatMessageTime(lastMessageAt)
@@ -23,7 +23,7 @@ export function ContactRow({
     <Link
       href={href}
       className={`flex items-center gap-3 rounded-[13px] px-3 py-2.5 transition-colors ${
-        active ? "bg-[var(--chat-active)]" : "hover:bg-[var(--chat-hover)]"
+        selected ? "bg-[var(--chat-active)]" : "hover:bg-[var(--chat-hover)]"
       }`}
     >
       <ChatAvatar name={name} size="md" />

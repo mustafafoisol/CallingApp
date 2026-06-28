@@ -49,7 +49,7 @@ export function ContactsSidebar({
               name={contact.friend.display_name ?? "Friend"}
               preview={contact.preview}
               lastMessageAt={contact.lastMessageAt}
-              active={contact.conversationId === activeConversationId}
+              selected={contact.conversationId === activeConversationId}
             />
           ))
         )}
