@@ -5,6 +5,7 @@ export type MessageStatus = "confirmed" | "pending" | "failed";
 export interface ChatMessage extends MessageRow {
   status?: MessageStatus;
   clientId?: string;
+  localPreviewUrl?: string;
 }
 
 export function createPendingMessage(
@@ -16,6 +17,25 @@ export function createPendingMessage(
     id: `pending-${clientId}`,
     sender_id: senderId,
     body,
+    type: "text",
+    created_at: new Date().toISOString(),
+    status: "pending",
+    clientId,
+  };
+}
+
+export function createPendingImageMessage(
+  clientId: string,
+  senderId: string,
+  previewUrl: string,
+): ChatMessage {
+  return {
+    id: `pending-${clientId}`,
+    sender_id: senderId,
+    body: "",
+    type: "image",
+    attachment_url: previewUrl,
+    localPreviewUrl: previewUrl,
     created_at: new Date().toISOString(),
     status: "pending",
     clientId,
@@ -51,9 +71,13 @@ export function reconcileIncomingMessage(
   }
 
   if (incoming.sender_id === currentUserId) {
-    const pendingIndex = messages.findIndex(
-      (m) => m.status === "pending" && m.body === incoming.body,
-    );
+    const pendingIndex = messages.findIndex((m) => {
+      if (m.status !== "pending") return false;
+      if (incoming.type === "image") {
+        return m.type === "image";
+      }
+      return m.body === incoming.body;
+    });
     if (pendingIndex !== -1) {
       const next = [...messages];
       next[pendingIndex] = { ...incoming, status: "confirmed" };
