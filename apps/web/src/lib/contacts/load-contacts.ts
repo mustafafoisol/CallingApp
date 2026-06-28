@@ -18,6 +18,7 @@ export interface Contact {
   conversationId: string | null;
   lastMessageAt: string | null;
   preview: string | null;
+  unreadCount: number;
 }
 
 interface FriendshipRow {
@@ -40,6 +41,11 @@ interface PreviewRow {
   body: string;
   type: string;
   removed_at: string | null;
+}
+
+interface UnreadRow {
+  conversation_id: string;
+  unread_count: number;
 }
 
 function previewText(msg: PreviewRow): string {
@@ -76,14 +82,24 @@ async function loadContactsImpl(
 
   const conversationIds = (conversations ?? []).map((c) => c.id);
   const previewByConversation = new Map<string, string>();
+  const unreadByConversation = new Map<string, number>();
 
   if (conversationIds.length > 0) {
-    const { data: previews } = await supabase.rpc("latest_message_previews", {
-      conversation_ids: conversationIds,
-    });
+    const [{ data: previews }, { data: unreadRows }] = await Promise.all([
+      supabase.rpc("latest_message_previews", {
+        conversation_ids: conversationIds,
+      }),
+      supabase.rpc("conversation_unread_counts", {
+        conversation_ids: conversationIds,
+      }),
+    ]);
 
     for (const row of (previews ?? []) as PreviewRow[]) {
       previewByConversation.set(row.conversation_id, previewText(row));
+    }
+
+    for (const row of (unreadRows ?? []) as UnreadRow[]) {
+      unreadByConversation.set(row.conversation_id, Number(row.unread_count));
     }
   }
 
@@ -105,6 +121,9 @@ async function loadContactsImpl(
       preview: conversation?.id
         ? (previewByConversation.get(conversation.id) ?? null)
         : null,
+      unreadCount: conversation?.id
+        ? (unreadByConversation.get(conversation.id) ?? 0)
+        : 0,
     };
   });
 
