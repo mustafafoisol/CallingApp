@@ -17,6 +17,9 @@ import {
 } from "@/lib/chat/messages";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
 import type { Contact } from "@/lib/contacts/load-contacts";
+import { maybeShowMessageNotification } from "@/lib/notifications/browser-message-notification";
+import { playMessageSound } from "@/lib/notifications/message-sound";
+import { shouldPlayMessageSound } from "@/lib/notifications/should-play-message-sound";
 
 const ContactsContext = createContext<Contact[]>([]);
 
@@ -46,7 +49,12 @@ export function ContactsProvider({
   children: ReactNode;
 }) {
   const [contacts, setContacts] = useState(initialContacts);
+  const contactsRef = useRef(contacts);
   const activeConversationIdRef = useRef(activeConversationId);
+
+  useEffect(() => {
+    contactsRef.current = contacts;
+  }, [contacts]);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -98,21 +106,45 @@ export function ContactsProvider({
             };
             if (message.sender_id === currentUserId) return;
 
+            const isActive =
+              message.conversation_id === activeConversationIdRef.current;
+
+            if (
+              shouldPlayMessageSound({
+                senderId: message.sender_id,
+                currentUserId,
+                isActive,
+              })
+            ) {
+              playMessageSound();
+            }
+
+            if (!isActive) {
+              const contact = contactsRef.current.find(
+                (item) => item.conversationId === message.conversation_id,
+              );
+
+              maybeShowMessageNotification({
+                messageId: message.id,
+                conversationId: message.conversation_id,
+                senderName: contact?.friend.display_name ?? "New message",
+                body: messagePreview(message),
+                iconUrl: contact?.friend.avatar_url ?? null,
+                chatUrl: `/chat/${message.conversation_id}`,
+              });
+            }
+
             setContacts((prev) => {
               const next = prev.map((contact) => {
                 if (contact.conversationId !== message.conversation_id) {
                   return contact;
                 }
 
-                const isActive =
-                  message.conversation_id === activeConversationIdRef.current;
                 return {
                   ...contact,
                   lastMessageAt: message.created_at,
                   preview: messagePreview(message),
-                  unreadCount: isActive
-                    ? 0
-                    : contact.unreadCount + 1,
+                  unreadCount: isActive ? 0 : contact.unreadCount + 1,
                 };
               });
 
