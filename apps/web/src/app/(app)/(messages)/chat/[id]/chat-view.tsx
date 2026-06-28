@@ -32,14 +32,19 @@ import { removeMessage } from "@/lib/chat/remove-message";
 export function ChatView({
   conversationId,
   currentUserId,
+  friendId,
+  friendshipId,
   friendName,
+  canMessage = true,
   initialMessages,
   initialHiddenMessageIds = [],
 }: {
   conversationId: string;
   currentUserId: string;
   friendId: string;
+  friendshipId?: string | null;
   friendName: string;
+  canMessage?: boolean;
   initialMessages: MessageRow[];
   initialHiddenMessageIds?: string[];
 }) {
@@ -401,6 +406,8 @@ export function ChatView({
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--chat-bg)]">
       <ChatHeader
+        friendId={friendId}
+        friendshipId={friendshipId}
         friendName={friendName}
         lastMessageAt={lastMessageAt}
         variant="classic"
@@ -502,12 +509,19 @@ export function ChatView({
         </p>
       )}
 
+      {!canMessage && (
+        <p className="px-5 pb-1 text-center text-sm text-[var(--chat-muted)]">
+          Add as friend to send messages
+        </p>
+      )}
+
       <ComposeBar
         value={body}
         onChange={setBody}
         onSubmit={sendMessage}
         onSendImage={(file) => void sendImage(file)}
         sending={sendingImage}
+        disabled={!canMessage}
         placeholder={`Message ${friendName.split(" ")[0]}…`}
       />
     </div>

@@ -34,13 +34,21 @@ export default async function ChatPage({
       ? conversation.user_b_id
       : conversation.user_a_id;
 
-  const [{ data: friend }, { data: recentMessages }, hiddenIds] =
+  const [{ data: friend }, { data: friendship }, { data: recentMessages }, hiddenIds] =
     await Promise.all([
       supabase
         .from("profiles")
         .select("id, display_name, public_id")
         .eq("id", friendId)
         .single(),
+      supabase
+        .from("friendships")
+        .select("id, status")
+        .or(
+          `and(requester_id.eq.${user.id},addressee_id.eq.${friendId}),and(requester_id.eq.${friendId},addressee_id.eq.${user.id})`,
+        )
+        .eq("status", "accepted")
+        .maybeSingle(),
       supabase
         .from("messages")
         .select(
@@ -62,7 +70,9 @@ export default async function ChatPage({
       conversationId={id}
       currentUserId={user.id}
       friendId={friendId}
+      friendshipId={friendship?.id ?? null}
       friendName={friend?.display_name ?? "Friend"}
+      canMessage={!!friendship}
       initialMessages={messages}
       initialHiddenMessageIds={[...hiddenIds]}
     />
