@@ -12,6 +12,7 @@ export function MessageBubble({
   senderName,
   variant = "classic",
   removed,
+  imageUrl,
 }: {
   body: string;
   mine: boolean;
@@ -21,13 +22,26 @@ export function MessageBubble({
   senderName?: string;
   variant?: "classic" | "focused";
   removed?: boolean;
+  imageUrl?: string | null;
 }) {
   const pending = status === "pending";
   const failed = status === "failed";
   const isClassic = variant === "classic";
   const displayBody = removed ? REMOVED_MESSAGE_LABEL : body;
+  const isImage = !removed && !!imageUrl;
 
-  const bubble = (
+  const bubble = isImage ? (
+    <div
+      className={`overflow-hidden ${isClassic ? "rounded-[18px]" : "rounded-[20px]"} ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageUrl}
+        alt="Shared image"
+        className="max-h-[280px] max-w-[min(280px,70vw)] object-cover"
+      />
+    </div>
+  ) : (
     <div
       className={
         removed
