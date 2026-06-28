@@ -57,11 +57,11 @@ Keep existing `prev.some(m => m.id === row.id)` guard for realtime + pagination 
 
 ## Acceptance criteria
 
-- [ ] User can load messages beyond initial 50
-- [ ] Scroll position stable when prepending
-- [ ] Realtime new messages still append at bottom
-- [ ] No duplicate messages in list
-- [ ] Works when fewer than page size messages exist (`hasMore = false`)
+- [x] User can load messages beyond initial 50
+- [x] Scroll position stable when prepending
+- [x] Realtime new messages still append at bottom
+- [x] No duplicate messages in list
+- [x] Works when fewer than page size messages exist (`hasMore = false`)
 
 ## Dependencies
 

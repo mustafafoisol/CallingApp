@@ -48,8 +48,8 @@ Phase 0 (shipped): auth, friends, basic realtime chat — see [../../features/](
 
 Phase 1 is complete when:
 
-- [ ] User can scroll/load full message history
-- [ ] Chat UI is polished (bubbles, timestamps, day groups, compose bar)
+- [x] User can scroll/load full message history
+- [x] Chat UI is polished (bubbles, timestamps, day groups, compose bar)
 - [ ] Text sends feel instant (optimistic) with error recovery
 - [ ] Typing indicator works between two users
 - [ ] Image attachments send and display inline
@@ -57,7 +57,7 @@ Phase 1 is complete when:
 - [ ] Opening a chat clears unread state
 - [ ] New messages update home list and unread badges without refresh
 - [ ] No spurious alerts while viewing the active chat
-- [ ] Emoji picker works in compose bar
+- [x] Emoji picker works in compose bar
 - [ ] User can hard-delete own messages (block gone for both users)
 - [x] Legacy `calls` table removed from database
 

@@ -3,16 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dayKey, formatDayLabel } from "@/lib/chat/format-time";
+import {
+  fetchOlderMessages,
+  INITIAL_MESSAGE_LIMIT,
+  OLDER_MESSAGE_PAGE_SIZE,
+  type MessageRow,
+} from "@/lib/chat/messages";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ComposeBar } from "@/components/chat/compose-bar";
 import { MessageBubble } from "@/components/chat/message-bubble";
-
-interface MessageRow {
-  id: string;
-  sender_id: string;
-  body: string;
-  created_at: string;
-}
 
 export function ChatView({
   conversationId,
@@ -31,16 +30,42 @@ export function ChatView({
   const [sendError, setSendError] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<string>("connecting");
   const [sending, setSending] = useState(false);
+  const [hasMore, setHasMore] = useState(
+    initialMessages.length >= INITIAL_MESSAGE_LIMIT,
+  );
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [loadOlderError, setLoadOlderError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollToBottomRef = useRef(false);
+  const pendingScrollRestore = useRef<{ height: number; top: number } | null>(
+    null,
+  );
 
   function appendMessage(row: MessageRow) {
+    scrollToBottomRef.current = true;
     setMessages((prev) =>
       prev.some((m) => m.id === row.id) ? prev : [...prev, row],
     );
   }
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "instant" });
+  }, []);
+
+  useEffect(() => {
+    if (pendingScrollRestore.current && scrollContainerRef.current) {
+      const { height, top } = pendingScrollRestore.current;
+      pendingScrollRestore.current = null;
+      const el = scrollContainerRef.current;
+      el.scrollTop = top + (el.scrollHeight - height);
+      return;
+    }
+
+    if (scrollToBottomRef.current) {
+      scrollToBottomRef.current = false;
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -91,10 +116,56 @@ export function ChatView({
     };
   }, [conversationId]);
 
+  async function loadOlderMessages() {
+    if (loadingOlder || !hasMore || messages.length === 0) return;
+
+    const oldest = messages[0];
+    const scrollEl = scrollContainerRef.current;
+    if (scrollEl) {
+      pendingScrollRestore.current = {
+        height: scrollEl.scrollHeight,
+        top: scrollEl.scrollTop,
+      };
+    }
+
+    setLoadingOlder(true);
+    setLoadOlderError(null);
+
+    try {
+      const supabase = createClient();
+      const older = await fetchOlderMessages(
+        supabase,
+        conversationId,
+        oldest,
+      );
+
+      setMessages((prev) => {
+        const existing = new Set(prev.map((m) => m.id));
+        const unique = older.filter((m) => !existing.has(m.id));
+        return [...unique, ...prev];
+      });
+      setHasMore(older.length === OLDER_MESSAGE_PAGE_SIZE);
+    } catch (err) {
+      pendingScrollRestore.current = null;
+      setLoadOlderError(
+        err instanceof Error ? err.message : "Could not load older messages.",
+      );
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  const MAX_MESSAGE_LENGTH = 4000;
+
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
     const text = body.trim();
     if (!text || sending) return;
+
+    if (text.length > MAX_MESSAGE_LENGTH) {
+      setSendError(`Message must be ${MAX_MESSAGE_LENGTH} characters or fewer.`);
+      return;
+    }
 
     setSending(true);
     setSendError(null);
@@ -140,7 +211,29 @@ export function ChatView({
         </p>
       )}
 
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
+      <div
+        ref={scrollContainerRef}
+        className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6"
+      >
+        {hasMore && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => void loadOlderMessages()}
+              disabled={loadingOlder}
+              className="rounded-full border border-[#EBE3DD] bg-[var(--chat-surface)] px-4 py-2 text-sm font-medium text-[var(--chat-muted)] transition-colors hover:bg-[var(--chat-hover)] disabled:opacity-50"
+            >
+              {loadingOlder ? "Loading…" : "Load older messages"}
+            </button>
+          </div>
+        )}
+
+        {loadOlderError && (
+          <p className="text-center text-sm text-[var(--danger)]" role="alert">
+            {loadOlderError}
+          </p>
+        )}
+
         {messages.length === 0 && (
           <p className="text-center text-sm text-[#A8998F]">
             No messages yet. Say hello!

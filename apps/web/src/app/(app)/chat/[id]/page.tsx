@@ -39,12 +39,14 @@ export default async function ChatPage({
     .eq("id", friendId)
     .single();
 
-  const { data: messages } = await supabase
+  const { data: recentMessages } = await supabase
     .from("messages")
     .select("id, sender_id, body, created_at")
     .eq("conversation_id", id)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(50);
+
+  const messages = (recentMessages ?? []).slice().reverse();
 
   return (
     <ChatView

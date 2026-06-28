@@ -46,8 +46,11 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 
 | File | Role |
 |------|------|
-| `apps/web/src/app/(app)/chat/[id]/page.tsx` | SSR: load conversation, verify participant, fetch messages |
-| `apps/web/src/app/(app)/chat/[id]/chat-view.tsx` | Client: realtime subscription, send form, bubble UI |
+| `apps/web/src/app/(app)/chat/[id]/page.tsx` | SSR: load conversation, verify participant, fetch last 50 messages |
+| `apps/web/src/app/(app)/chat/[id]/chat-view.tsx` | Client: realtime subscription, pagination, send form, bubble UI |
+| `apps/web/src/lib/chat/messages.ts` | `fetchOlderMessages()` cursor pagination helper |
+| `apps/web/src/components/chat/compose-bar.tsx` | Compose bar with emoji picker |
+| `apps/web/src/components/chat/emoji-picker-popover.tsx` | Emoji picker popover |
 | `packages/core/src/types.ts` | `Message`, `MessageType` interfaces |
 | `supabase/migrations/20250625000001_initial_schema.sql` | `messages` table, RLS, realtime publication |
 
@@ -57,14 +60,15 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 1. User authenticated (redirect `/login`).
 2. Conversation exists and user is participant (else redirect `/home`).
 3. Resolve friend profile for header title.
-4. Fetch up to **50** most recent messages, ascending order.
+4. Fetch up to **50** most recent messages (descending query, reversed for display).
 
 **Renders:** `AppShell` + `ChatView` with `initialMessages`.
 
 ## ChatView component
 
 **State:**
-- `messages` — initialized from SSR, appended via realtime
+- `messages` — initialized from SSR, prepended via pagination, appended via realtime
+- `hasMore` / `loadingOlder` — cursor pagination for older history
 - `body` — compose input text
 
 **Realtime subscription:**
@@ -84,10 +88,14 @@ supabase.channel(`messages:${conversationId}`)
 
 **Realtime:** Subscribes after `getSession()`; logs channel status; banner if not `SUBSCRIBED`.
 
+**Pagination:** "Load older messages" at top fetches 30 more via `fetchOlderMessages()` using `(created_at, id)` cursor. Scroll position preserved when prepending. `hasMore` is false when a page returns fewer than 30 rows.
+
 **UI:**
-- Mine: right-aligned, `bg-primary`
-- Theirs: left-aligned, `bg-[#1a2340]`
-- Auto-scroll to bottom on new messages
+- Mine: right-aligned coral bubble with timestamp below
+- Theirs: left-aligned surface bubble with timestamp below
+- Day separators between message groups
+- Emoji picker in compose bar (UTF-8 in `body`, no schema change)
+- Auto-scroll to bottom on new messages only (not when loading older)
 
 ## Conversation metadata
 
@@ -101,7 +109,6 @@ Trigger `handle_new_message()` updates `conversations.last_message_at` on every 
 
 | Limitation | Plan |
 |------------|------|
-| Only 50 messages loaded | [message-pagination.md](../plans/phase1/message-pagination.md) |
 | No typing indicators | [message-enhancements.md](../plans/phase1/message-enhancements.md) |
 | No read receipts | [unread-and-read-state.md](../plans/phase1/unread-and-read-state.md) |
 | No attachments | [message-enhancements.md](../plans/phase1/message-enhancements.md) |

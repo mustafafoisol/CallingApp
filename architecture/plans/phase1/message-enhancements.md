@@ -22,11 +22,11 @@ Typing indicators, timestamps, edit/delete, and rich content.
 
 **New:** `apps/web/src/lib/chat/typing.ts`
 
-### 3. Edit & delete own messages
-- Migration: add `edited_at`, `deleted_at` nullable columns
-- Soft delete: set `deleted_at`, render "Message deleted" placeholder
+### 3. Edit own messages
+- Migration: add `edited_at` nullable column
 - Edit: update `body`, set `edited_at`
 - RLS: UPDATE policy where `sender_id = auth.uid()`
+- **Delete:** see [message-deletion.md](./message-deletion.md) — hard delete, no `deleted_at` placeholder
 
 ### 4. Image attachments
 - Migration: extend `messages.type` to include `'image'`
@@ -45,15 +45,16 @@ Typing indicators, timestamps, edit/delete, and rich content.
 1. Timestamps (quick win)
 2. Optimistic sends (reliability UX)
 3. Typing indicators
-4. Edit/delete
+4. Edit (optional)
 5. Image attachments
 
-## Schema changes (edit/delete + images)
+**Related:** [emoji-support.md](./emoji-support.md) (picker, no schema), [message-deletion.md](./message-deletion.md) (hard delete, v1.1)
+
+## Schema changes (edit + images)
 
 ```sql
 alter table public.messages
   add column edited_at timestamptz,
-  add column deleted_at timestamptz,
   add column attachment_url text;
 
 alter table public.messages
@@ -65,9 +66,10 @@ alter table public.messages
 ## Acceptance criteria
 
 Per sub-feature:
-- [ ] Timestamps visible and correct timezone
+- [x] Timestamps visible and correct timezone
 - [ ] Typing indicator appears/disappears reliably
-- [ ] User can edit/delete only own messages within 15 min (optional rule)
+- [ ] User can edit only own messages within 15 min (optional rule)
+- [ ] Delete: see [message-deletion.md](./message-deletion.md) acceptance criteria
 - [ ] Images upload and display inline
 - [ ] Optimistic send feels instant; errors recoverable
 
@@ -82,5 +84,6 @@ Per sub-feature:
 | Timestamps | 2h |
 | Optimistic sends | 4h |
 | Typing | 1 day |
-| Edit/delete | 1 day |
+| Edit | 0.5 day |
+| Delete | See [message-deletion.md](./message-deletion.md) (~1 day) |
 | Images | 2 days |

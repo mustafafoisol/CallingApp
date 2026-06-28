@@ -16,8 +16,8 @@ export function MessageBubble({
       <div
         className={
           mine
-            ? "rounded-[20px_20px_7px_20px] bg-[var(--chat-coral)] px-[17px] py-[13px] text-[15.5px] leading-normal text-white"
-            : "rounded-[20px_20px_20px_7px] border border-[#EDE5DF] bg-[var(--chat-surface)] px-[17px] py-[13px] text-[15.5px] leading-normal text-[var(--chat-text)]"
+            ? "rounded-[20px_20px_7px_20px] bg-[var(--chat-coral)] px-[17px] py-[13px] text-[15.5px] leading-relaxed whitespace-pre-wrap break-words text-white"
+            : "rounded-[20px_20px_20px_7px] border border-[#EDE5DF] bg-[var(--chat-surface)] px-[17px] py-[13px] text-[15.5px] leading-relaxed whitespace-pre-wrap break-words text-[var(--chat-text)]"
         }
       >
         {body}
