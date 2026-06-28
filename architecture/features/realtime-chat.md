@@ -45,7 +45,7 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 
 **Image uploads:** Client compresses picks to ≤1 MB (max 1920px edge) via `browser-image-compression`, then uploads to `chat-media/{conversationId}/{uuid}.ext`. Home preview shows `[Image]`.
 
-**Link previews:** Text messages containing `http://` or `https://` URLs render a preview card (OG metadata via `/api/link-preview`). Tapping the card opens an in-app browser dialog with iframe embed (YouTube URLs use `/embed/`).
+**Link previews:** Text messages containing `http://` or `https://` URLs render a preview card (OG metadata via `/api/link-preview`, cached in `localStorage` only). YouTube links show `img.youtube.com` thumbnails immediately. Tapping the card opens an in-app browser dialog with iframe embed (YouTube URLs use `/embed/`).
 
 ## File map
 
@@ -64,7 +64,8 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 | `apps/web/src/components/chat/link-preview-card.tsx` | Rich link preview card in message thread |
 | `apps/web/src/components/chat/link-preview-dialog.tsx` | In-app browser dialog (iframe) |
 | `apps/web/src/lib/chat/detect-links.ts` | Extract URLs from message body |
-| `apps/web/src/lib/chat/link-preview.ts` | OG parse helpers, embed URL, SSRF checks |
+| `apps/web/src/lib/chat/link-preview.ts` | OG parse helpers, YouTube thumbnail URL, embed URL |
+| `apps/web/src/lib/chat/link-preview-cache.ts` | `localStorage` cache for preview metadata (7-day TTL) |
 | `apps/web/src/app/api/link-preview/route.ts` | Server-side OG metadata fetch |
 | `apps/web/src/components/chat/compose-bar.tsx` | Compose bar with emoji picker + image picker |
 | `apps/web/src/components/chat/emoji-picker-popover.tsx` | Emoji picker popover |
