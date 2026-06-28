@@ -10,14 +10,16 @@
 | [end-to-end-chat.md](./end-to-end-chat.md) | **Start here** — umbrella spec and refinement doc |
 | [database-cleanup.md](./database-cleanup.md) | Remove legacy `calls` schema |
 | [message-pagination.md](./message-pagination.md) | Load older message history |
-| [message-enhancements.md](./message-enhancements.md) | Timestamps, optimistic sends, images, edit |
+| [message-enhancements.md](./message-enhancements.md) | Timestamps, optimistic sends, images |
 | [emoji-support.md](./emoji-support.md) | Emoji picker + rendering (no schema) |
-| [message-deletion.md](./message-deletion.md) | Hard delete — message block gone entirely |
+| [message-deletion.md](./message-deletion.md) | Soft remove + per-user hide |
 
 **Deferred to Phase 3** (not Phase 1 scope):
 
 | Doc | Purpose |
 |-----|---------|
+| [message-edit.md](../phase3/message-edit.md) | Edit own messages |
+| [message-forward.md](../phase3/message-forward.md) | Forward message to another chat |
 | [unread-and-read-state.md](../phase3/unread-and-read-state.md) | Unread badges and read cursors |
 | [message-notifications.md](../phase3/message-notifications.md) | Global Realtime listener, live home updates, browser toasts |
 | [typing-indicators.md](../phase3/typing-indicators.md) | "Alex is typing…" broadcast |
@@ -31,15 +33,14 @@ flowchart TD
   C --> D[emoji-support]
   D --> E[optimistic sends]
   E --> F[image attachments]
-  F --> G["hard delete (optional v1.1)"]
-  G --> H["edit (optional v1.1)"]
+  F --> G["message remove / hide (optional v1.1)"]
 ```
 
 1. [database-cleanup.md](./database-cleanup.md) — done
 2. [message-pagination.md](./message-pagination.md) — done
 3. [message-enhancements.md](./message-enhancements.md) — timestamps, optimistic — done; **images next**
 4. [emoji-support.md](./emoji-support.md) — done
-5. [message-deletion.md](./message-deletion.md) — hard delete (v1.1 stretch)
+5. [message-deletion.md](./message-deletion.md) — soft remove + per-user hide (v1.1 stretch)
 
 ## Depends on
 
@@ -55,9 +56,9 @@ Phase 1 is complete when:
 - [ ] Image attachments send and display inline
 - [x] Emoji picker works in compose bar
 - [x] Legacy `calls` table removed from database
-- [ ] User can hard-delete own messages (block gone for both users) — **v1.1 stretch**
+- [ ] User can remove own messages (both see "Message removed") and hide others' messages (viewer only) — **v1.1 stretch**
 
-**Moved to Phase 3:** typing indicators, unread badges, home preview, in-app notifications.
+**Moved to Phase 3:** edit messages, forward message, typing indicators, unread badges, home preview, in-app notifications.
 
 ## Next phase
 

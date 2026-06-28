@@ -259,8 +259,8 @@ with check (
   )
 );
 
--- messages_delete_own (from message-deletion.md)
-using (auth.uid() = sender_id and public.is_conversation_member(conversation_id));
+-- messages_update_remove_own + message_hides (from message-deletion.md)
+-- Global remove: sender + is_conversation_member; hide: message_hides insert for non-own messages
 ```
 
 Group creation runs via `POST /api/groups/create` calling security definer RPC `create_group_conversation()`.
@@ -345,7 +345,7 @@ Same as 1:1 — UTF-8 in `body`, picker in compose bar. See [emoji-support.md](.
 
 ### Message delete
 
-Hard delete per [message-deletion.md](../phase1/message-deletion.md) — row removed entirely for all members. Extend DELETE RLS with `is_conversation_member()`. Realtime DELETE subscription unchanged.
+Soft remove + per-user hide per [message-deletion.md](../phase1/message-deletion.md) — own messages show **"Message removed"** for all members; hide other's messages locally. Extend `message_hides` INSERT policy with `is_conversation_member()`. Realtime UPDATE for global remove.
 
 ### Notifications
 
@@ -368,7 +368,7 @@ Phase 3 push: fan-out via `conversation_members` instead of `user_a_id`/`user_b_
 | [message-pagination.md](../phase1/message-pagination.md) | Group threads need history |
 | [unread-and-read-state.md](../phase3/unread-and-read-state.md) | Per-member unread |
 | [emoji-support.md](../phase1/emoji-support.md) | Compose bar picker |
-| [message-deletion.md](../phase1/message-deletion.md) | Hard delete in groups |
+| [message-deletion.md](../phase1/message-deletion.md) | Remove / hide in groups |
 | [message-notifications.md](../phase3/message-notifications.md) | Group fan-out |
 
 ### Phase 2 (strongly recommended)

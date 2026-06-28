@@ -7,6 +7,8 @@
 
 | Doc | Purpose |
 |-----|---------|
+| [message-edit.md](./message-edit.md) | Edit own messages (deferred from Phase 1) |
+| [message-forward.md](./message-forward.md) | Forward message to another chat |
 | [unread-and-read-state.md](./unread-and-read-state.md) | Unread badges and read cursors (deferred from Phase 1) |
 | [message-notifications.md](./message-notifications.md) | Global Realtime listener, live home updates, browser toasts |
 | [typing-indicators.md](./typing-indicators.md) | "Alex is typing…" broadcast (deferred from Phase 1) |
