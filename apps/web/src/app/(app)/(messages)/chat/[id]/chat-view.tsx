@@ -68,6 +68,9 @@ export function ChatView({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [sendingImage, setSendingImage] = useState(false);
   const [linkPreviewUrl, setLinkPreviewUrl] = useState<string | null>(null);
+  const [openActionsMessageId, setOpenActionsMessageId] = useState<
+    string | null
+  >(null);
   const hiddenMessageIdsRef = useRef(new Set(initialHiddenMessageIds));
   const pendingImageFilesRef = useRef(new Map<string, File>());
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -395,6 +398,7 @@ export function ChatView({
       return;
     }
 
+    setOpenActionsMessageId(null);
     setDeleteError(null);
     const supabase = createClient();
     const snapshot = messages;
@@ -454,7 +458,7 @@ export function ChatView({
 
       <div
         ref={scrollContainerRef}
-        className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-7 py-5"
+        className="flex flex-1 flex-col gap-3.5 overflow-y-auto overflow-x-visible px-7 py-5"
       >
         {hasMore && (
           <div className="flex justify-center">
@@ -490,14 +494,7 @@ export function ChatView({
             message.type === "image" && !message.removed_at;
           const showActionsMenu =
             !message.removed_at && message.status === "confirmed";
-          const actionSlot = showActionsMenu ? (
-            <MessageActionsMenu
-              isOwn={mine}
-              onDelete={() => void handleDeleteMessage(message)}
-            />
-          ) : message.removed_at ? (
-            <div className="h-8 w-8 shrink-0" aria-hidden />
-          ) : null;
+          const actionsOpen = openActionsMessageId === message.id;
 
           return (
             <Fragment key={message.id}>
@@ -523,32 +520,48 @@ export function ChatView({
                   ) : (
                     <ChatAvatar name={friendName} size="sm" />
                   ))}
-                <MessageBubble
-                  body={message.body}
-                  mine={mine}
-                  createdAt={message.created_at}
-                  status={message.status}
-                  variant="classic"
-                  removed={!!message.removed_at}
-                  imageUrl={
-                    message.type === "image" ? message.attachment_url : undefined
-                  }
-                  onLinkOpen={setLinkPreviewUrl}
-                  onRetry={
-                    message.status === "failed" && message.clientId
-                      ? () =>
-                          void (message.type === "image"
-                            ? sendImage(
-                                pendingImageFilesRef.current.get(
-                                  message.clientId!,
-                                )!,
-                                message.clientId,
-                              )
-                            : retryMessage(message.clientId!, message.body))
-                      : undefined
-                  }
-                />
-                {actionSlot}
+                <div className="relative flex min-w-0 items-end gap-1">
+                  <MessageBubble
+                    body={message.body}
+                    mine={mine}
+                    createdAt={message.created_at}
+                    status={message.status}
+                    variant="classic"
+                    removed={!!message.removed_at}
+                    actionsOpen={actionsOpen}
+                    imageUrl={
+                      message.type === "image"
+                        ? message.attachment_url
+                        : undefined
+                    }
+                    onLinkOpen={setLinkPreviewUrl}
+                    onRetry={
+                      message.status === "failed" && message.clientId
+                        ? () =>
+                            void (message.type === "image"
+                              ? sendImage(
+                                  pendingImageFilesRef.current.get(
+                                    message.clientId!,
+                                  )!,
+                                  message.clientId,
+                                )
+                              : retryMessage(message.clientId!, message.body))
+                        : undefined
+                    }
+                  />
+                  {showActionsMenu ? (
+                    <MessageActionsMenu
+                      isOwn={mine}
+                      open={actionsOpen}
+                      onOpenChange={(open) =>
+                        setOpenActionsMessageId(open ? message.id : null)
+                      }
+                      onDelete={() => void handleDeleteMessage(message)}
+                    />
+                  ) : message.removed_at ? (
+                    <div className="h-8 w-8 shrink-0" aria-hidden />
+                  ) : null}
+                </div>
               </div>
             </Fragment>
           );
