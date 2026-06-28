@@ -49,6 +49,10 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 | `apps/web/src/app/(app)/chat/[id]/page.tsx` | SSR: load conversation, verify participant, fetch last 50 messages |
 | `apps/web/src/app/(app)/chat/[id]/chat-view.tsx` | Client: realtime subscription, pagination, send form, bubble UI |
 | `apps/web/src/lib/chat/messages.ts` | `fetchOlderMessages()` cursor pagination helper |
+| `apps/web/src/lib/chat/remove-message.ts` | Global soft remove (own messages) |
+| `apps/web/src/lib/chat/hide-message.ts` | Per-user hide (others' messages) |
+| `apps/web/src/lib/chat/message-hides.ts` | Load hidden message IDs for a conversation |
+| `apps/web/src/components/chat/message-actions-menu.tsx` | Delete / hide action on bubbles |
 | `apps/web/src/lib/chat/optimistic.ts` | Pending/confirmed message state helpers |
 | `apps/web/src/components/chat/compose-bar.tsx` | Compose bar with emoji picker |
 | `apps/web/src/components/chat/emoji-picker-popover.tsx` | Emoji picker popover |
@@ -81,9 +85,15 @@ supabase.channel(`messages:${conversationId}`)
     table: "messages",
     filter: `conversation_id=eq.${conversationId}`,
   }, handler)
+  .on("postgres_changes", { event: "UPDATE", ... }, handler)  // removed_at sync
 ```
 
 **Deduplication:** Before appending, checks `prev.some(m => m.id === row.id)`.
+
+**Remove / hide:**
+- Any participant can act on any message via `⋯` menu.
+- **Own message:** `UPDATE` sets `removed_at` + clears `body`; both users see muted **"Message removed"** bubble (realtime UPDATE).
+- **Other's message:** `INSERT message_hides`; hidden only for the actor (filtered on SSR load and pagination).
 
 **Send (optimistic):** On submit, appends a pending bubble immediately and clears the compose input. Background `INSERT` with `.select().single()` replaces the pending row with the confirmed message. Realtime INSERT reconciles the same way if it arrives first. Failed sends show "Failed to send · Retry" on the bubble; compose-level error for first failure.
 
@@ -113,7 +123,7 @@ Trigger `handle_new_message()` updates `conversations.last_message_at` on every 
 | No typing indicators | [typing-indicators.md](../plans/phase3/typing-indicators.md) (Phase 3) |
 | No unread badges / read state | [unread-and-read-state.md](../plans/phase3/unread-and-read-state.md) (Phase 3) |
 | No attachments | [message-enhancements.md](../plans/phase1/message-enhancements.md) |
-| No edit/delete | [message-enhancements.md](../plans/phase1/message-enhancements.md) |
+| No edit / forward | [message-edit.md](../plans/phase3/message-edit.md), [message-forward.md](../plans/phase3/message-forward.md) |
 | Realtime-only delivery (fixed) | Sender now appends from INSERT response — see [troubleshooting.md](../feature-tests/chat/troubleshooting.md) |
 
 ## Testing

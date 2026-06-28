@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { MessagesShell } from "@/components/messages/messages-shell";
 import { loadContacts } from "@/lib/contacts/load-contacts";
+import { loadHiddenMessageIds } from "@/lib/chat/message-hides";
 import { createClient } from "@/lib/supabase/server";
 import { ChatView } from "./chat-view";
 
@@ -35,7 +36,7 @@ export default async function ChatPage({
       ? conversation.user_b_id
       : conversation.user_a_id;
 
-  const [{ data: friend }, { data: recentMessages }, contacts] =
+  const [{ data: friend }, { data: recentMessages }, contacts, hiddenIds] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -44,14 +45,18 @@ export default async function ChatPage({
         .single(),
       supabase
         .from("messages")
-        .select("id, sender_id, body, created_at")
+        .select("id, sender_id, body, created_at, removed_at")
         .eq("conversation_id", id)
         .order("created_at", { ascending: false })
         .limit(50),
       loadContacts(supabase, user.id),
+      loadHiddenMessageIds(supabase, user.id, id),
     ]);
 
-  const messages = (recentMessages ?? []).slice().reverse();
+  const messages = (recentMessages ?? [])
+    .filter((m) => !hiddenIds.has(m.id))
+    .slice()
+    .reverse();
 
   return (
     <MessagesShell contacts={contacts} activeConversationId={id}>
@@ -60,7 +65,8 @@ export default async function ChatPage({
         currentUserId={user.id}
         friendId={friendId}
         friendName={friend?.display_name ?? "Friend"}
-        initialMessages={messages ?? []}
+        initialMessages={messages}
+        initialHiddenMessageIds={[...hiddenIds]}
       />
     </MessagesShell>
   );

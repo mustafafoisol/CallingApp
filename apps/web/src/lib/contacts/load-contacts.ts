@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canonicalizeParticipants } from "@calling-app/core";
+import { REMOVED_MESSAGE_LABEL } from "@/lib/chat/messages";
 
 export interface FriendProfile {
   id: string;
@@ -57,12 +58,14 @@ export async function loadContacts(
       if (conversation?.id) {
         const { data: lastMsg } = await supabase
           .from("messages")
-          .select("body")
+          .select("body, removed_at")
           .eq("conversation_id", conversation.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        preview = lastMsg?.body ?? null;
+        preview = lastMsg?.removed_at
+          ? REMOVED_MESSAGE_LABEL
+          : (lastMsg?.body ?? null);
       }
 
       return {

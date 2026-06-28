@@ -100,11 +100,22 @@ erDiagram
 | `id` | uuid PK | |
 | `conversation_id` | uuid FK | ON DELETE CASCADE |
 | `sender_id` | uuid FK | Must equal `auth.uid()` on insert |
-| `body` | text | 1–4000 chars |
+| `body` | text | 1–4000 chars when active; empty when `removed_at` set |
 | `type` | text | `'text'` only |
 | `created_at` | timestamptz | |
+| `removed_at` | timestamptz | Nullable; global soft remove for sender |
 
 **Index:** `messages_conversation_created_idx (conversation_id, created_at DESC)`
+
+### `message_hides`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | uuid FK | Hider |
+| `message_id` | uuid FK | Hidden message |
+| `created_at` | timestamptz | |
+
+**PK:** `(user_id, message_id)` — per-user hide for others' messages.
 
 ## Triggers
 
@@ -147,6 +158,16 @@ No INSERT policy for clients — conversations created only by trigger (security
 |--------|-----------|------|
 | `messages_select_participant` | SELECT | User in parent conversation |
 | `messages_insert_participant` | INSERT | User is sender, in conversation, and friendship is `accepted` |
+| `messages_update_remove_own` | UPDATE | Sender soft-removes own message (`removed_at`) |
+
+### `message_hides`
+
+| Policy | Operation | Rule |
+|--------|-----------|------|
+| `message_hides_select_own` | SELECT | `user_id = auth.uid()` |
+| `message_hides_insert_own` | INSERT | Own row; message not own; not already globally removed |
+
+`messages.replica identity full` — required for realtime UPDATE payloads.
 
 ## Realtime publication
 

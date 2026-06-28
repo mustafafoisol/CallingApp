@@ -33,4 +33,5 @@ export interface Message {
   body: string;
   type: MessageType;
   created_at: string;
+  removed_at: string | null;
 }

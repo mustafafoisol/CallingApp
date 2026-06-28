@@ -56,7 +56,7 @@ Phase 1 is complete when:
 - [ ] Image attachments send and display inline
 - [x] Emoji picker works in compose bar
 - [x] Legacy `calls` table removed from database
-- [ ] User can remove own messages (both see "Message removed") and hide others' messages (viewer only) — **v1.1 stretch**
+- [x] User can remove own messages (both see "Message removed") and hide others' messages (viewer only) — **v1.1 stretch**
 
 **Moved to Phase 3:** edit messages, forward message, typing indicators, unread badges, home preview, in-app notifications.
 

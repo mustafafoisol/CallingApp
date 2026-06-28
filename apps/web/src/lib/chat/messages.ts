@@ -8,7 +8,10 @@ export interface MessageRow {
   sender_id: string;
   body: string;
   created_at: string;
+  removed_at?: string | null;
 }
+
+export const REMOVED_MESSAGE_LABEL = "Message removed";
 
 export async function fetchOlderMessages(
   supabase: SupabaseClient,
@@ -18,7 +21,7 @@ export async function fetchOlderMessages(
 ): Promise<MessageRow[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select("id, sender_id, body, created_at")
+    .select("id, sender_id, body, created_at, removed_at")
     .eq("conversation_id", conversationId)
     .or(
       `created_at.lt.${oldest.created_at},and(created_at.eq.${oldest.created_at},id.lt.${oldest.id})`,

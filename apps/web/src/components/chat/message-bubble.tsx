@@ -1,5 +1,6 @@
 import { ChatAvatar } from "@/components/chat/avatar";
 import { formatMessageTime } from "@/lib/chat/format-time";
+import { REMOVED_MESSAGE_LABEL } from "@/lib/chat/messages";
 import type { MessageStatus } from "@/lib/chat/optimistic";
 
 export function MessageBubble({
@@ -10,6 +11,7 @@ export function MessageBubble({
   onRetry,
   senderName,
   variant = "classic",
+  removed,
 }: {
   body: string;
   mine: boolean;
@@ -18,20 +20,24 @@ export function MessageBubble({
   onRetry?: () => void;
   senderName?: string;
   variant?: "classic" | "focused";
+  removed?: boolean;
 }) {
   const pending = status === "pending";
   const failed = status === "failed";
   const isClassic = variant === "classic";
+  const displayBody = removed ? REMOVED_MESSAGE_LABEL : body;
 
   const bubble = (
     <div
       className={
-        mine
-          ? `bg-[var(--chat-coral)] text-white ${isClassic ? "rounded-[18px_18px_6px_18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_7px_20px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
-          : `border border-[#EDE5DF] bg-[var(--chat-surface)] text-[var(--chat-text)] ${isClassic ? "rounded-[18px_18px_18px_6px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_20px_7px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
+        removed
+          ? `border border-[#EDE5DF] bg-[var(--chat-hover)] text-[var(--chat-muted)] italic ${isClassic ? "rounded-[18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px] px-[17px] py-[13px] text-[15.5px]"}`
+          : mine
+            ? `bg-[var(--chat-coral)] text-white ${isClassic ? "rounded-[18px_18px_6px_18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_7px_20px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
+            : `border border-[#EDE5DF] bg-[var(--chat-surface)] text-[var(--chat-text)] ${isClassic ? "rounded-[18px_18px_18px_6px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_20px_7px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
       }
     >
-      {body}
+      {displayBody}
     </div>
   );
 
@@ -60,16 +66,16 @@ export function MessageBubble({
     return (
       <div className="flex max-w-[74%] flex-col items-end gap-1 self-end">
         {bubble}
-        {meta}
+        {!removed && meta}
       </div>
     );
   }
 
-  if (isClassic && senderName) {
+  if (isClassic && senderName && !removed) {
     return (
       <div className="flex max-w-[74%] items-end gap-2.5 self-start">
         <ChatAvatar name={senderName} size="sm" />
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="min-w-0 flex-col gap-1 flex">
           {bubble}
           {meta}
         </div>
@@ -78,9 +84,11 @@ export function MessageBubble({
   }
 
   return (
-    <div className="flex max-w-[78%] flex-col gap-1 self-start">
+    <div
+      className={`flex max-w-[78%] flex-col gap-1 ${mine ? "items-end self-end" : "self-start"}`}
+    >
       {bubble}
-      {meta}
+      {!removed && meta}
     </div>
   );
 }

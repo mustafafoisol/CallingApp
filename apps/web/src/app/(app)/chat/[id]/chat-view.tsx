@@ -18,19 +18,24 @@ import {
 } from "@/lib/chat/optimistic";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ComposeBar } from "@/components/chat/compose-bar";
+import { MessageActionsMenu } from "@/components/chat/message-actions-menu";
 import { MessageBubble } from "@/components/chat/message-bubble";
+import { hideMessage } from "@/lib/chat/hide-message";
+import { removeMessage } from "@/lib/chat/remove-message";
 
 export function ChatView({
   conversationId,
   currentUserId,
   friendName,
   initialMessages,
+  initialHiddenMessageIds = [],
 }: {
   conversationId: string;
   currentUserId: string;
   friendId: string;
   friendName: string;
   initialMessages: MessageRow[];
+  initialHiddenMessageIds?: string[];
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(
     initialMessages.map((message) => ({ ...message, status: "confirmed" })),
@@ -43,6 +48,8 @@ export function ChatView({
   );
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [loadOlderError, setLoadOlderError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const hiddenMessageIdsRef = useRef(new Set(initialHiddenMessageIds));
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollToBottomRef = useRef(false);
@@ -59,6 +66,16 @@ export function ChatView({
     },
     [currentUserId],
   );
+
+  const applyMessageUpdate = useCallback((row: MessageRow) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === row.id ? { ...m, ...row, status: "confirmed" } : m)),
+    );
+  }, []);
+
+  const isHidden = useCallback((messageId: string) => {
+    return hiddenMessageIdsRef.current.has(messageId);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
@@ -110,6 +127,19 @@ export function ChatView({
             reconcileMessage(payload.new as MessageRow);
           },
         )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const row = payload.new as MessageRow;
+            if (row.removed_at) applyMessageUpdate(row);
+          },
+        )
         .subscribe((status, err) => {
           if (cancelled) return;
           setRealtimeStatus(status);
@@ -125,7 +155,7 @@ export function ChatView({
       cancelled = true;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [conversationId, reconcileMessage]);
+  }, [conversationId, reconcileMessage, applyMessageUpdate]);
 
   async function loadOlderMessages() {
     if (loadingOlder || !hasMore || messages.length === 0) return;
@@ -152,7 +182,9 @@ export function ChatView({
 
       setMessages((prev) => {
         const existing = new Set(prev.map((m) => m.id));
-        const unique = older.filter((m) => !existing.has(m.id));
+        const unique = older.filter(
+          (m) => !existing.has(m.id) && !isHidden(m.id),
+        );
         return [...unique, ...prev];
       });
       setHasMore(older.length === OLDER_MESSAGE_PAGE_SIZE);
@@ -202,7 +234,7 @@ export function ChatView({
         body: text,
         type: "text",
       })
-      .select("id, sender_id, body, created_at")
+      .select("id, sender_id, body, created_at, removed_at")
       .single();
 
     if (error) {
@@ -236,6 +268,44 @@ export function ChatView({
   async function retryMessage(clientId: string, text: string) {
     setSendError(null);
     await sendText(text, clientId);
+  }
+
+  async function handleDeleteMessage(message: ChatMessage) {
+    if (message.status !== "confirmed" || message.id.startsWith("pending-")) {
+      return;
+    }
+
+    setDeleteError(null);
+    const supabase = createClient();
+    const snapshot = messages;
+
+    if (message.sender_id === currentUserId) {
+      const removedAt = new Date().toISOString();
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? { ...m, removed_at: removedAt, body: "", status: "confirmed" }
+            : m,
+        ),
+      );
+
+      const { error } = await removeMessage(supabase, message.id);
+      if (error) {
+        setMessages(snapshot);
+        setDeleteError(error.message);
+      }
+      return;
+    }
+
+    hiddenMessageIdsRef.current.add(message.id);
+    setMessages((prev) => prev.filter((m) => m.id !== message.id));
+
+    const { error } = await hideMessage(supabase, message.id, currentUserId);
+    if (error) {
+      hiddenMessageIdsRef.current.delete(message.id);
+      setMessages(snapshot);
+      setDeleteError(error.message);
+    }
   }
 
   let lastDay: string | null = null;
@@ -293,28 +363,39 @@ export function ChatView({
                   </span>
                 </div>
               )}
-              <MessageBubble
-                body={message.body}
-                mine={mine}
-                createdAt={message.created_at}
-                status={message.status}
-                senderName={friendName}
-                variant="classic"
-                onRetry={
-                  message.status === "failed" && message.clientId
-                    ? () => void retryMessage(message.clientId!, message.body)
-                    : undefined
-                }
-              />
+              <div
+                className={`group flex w-full items-end gap-1 ${mine ? "justify-end" : "justify-start"}`}
+              >
+                <MessageBubble
+                  body={message.body}
+                  mine={mine}
+                  createdAt={message.created_at}
+                  status={message.status}
+                  senderName={friendName}
+                  variant="classic"
+                  removed={!!message.removed_at}
+                  onRetry={
+                    message.status === "failed" && message.clientId
+                      ? () => void retryMessage(message.clientId!, message.body)
+                      : undefined
+                  }
+                />
+                {!message.removed_at && message.status === "confirmed" && (
+                  <MessageActionsMenu
+                    isOwn={mine}
+                    onDelete={() => void handleDeleteMessage(message)}
+                  />
+                )}
+              </div>
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
 
-      {sendError && (
+      {(sendError || deleteError) && (
         <p className="px-5 pb-1 text-sm text-[var(--danger)]" role="alert">
-          {sendError}
+          {sendError ?? deleteError}
         </p>
       )}
 
