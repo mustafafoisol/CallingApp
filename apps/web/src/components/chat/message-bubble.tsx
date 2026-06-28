@@ -14,6 +14,7 @@ export function MessageBubble({
   removed,
   imageUrl,
   onLinkOpen,
+  actionsOpen,
 }: {
   body: string;
   mine: boolean;
@@ -24,6 +25,7 @@ export function MessageBubble({
   removed?: boolean;
   imageUrl?: string | null;
   onLinkOpen?: (url: string) => void;
+  actionsOpen?: boolean;
 }) {
   const pending = status === "pending";
   const failed = status === "failed";
@@ -36,9 +38,16 @@ export function MessageBubble({
     ? `border border-[#EDE5DF] bg-[var(--chat-hover)] text-[var(--chat-muted)] italic ${isClassic ? "rounded-[18px_18px_6px_18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_7px_20px] px-[17px] py-[13px] text-[15.5px]"}`
     : `border border-[#EDE5DF] bg-[var(--chat-hover)] text-[var(--chat-muted)] italic ${isClassic ? "rounded-[18px_18px_18px_6px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_20px_7px] px-[17px] py-[13px] text-[15.5px]"}`;
 
+  const selectionRing =
+    actionsOpen && mine && !removed
+      ? "shadow-[0_0_0_3px_rgba(242,107,82,0.22)]"
+      : actionsOpen && !mine && !removed
+        ? "shadow-[0_0_0_3px_rgba(237,229,223,0.9)]"
+        : "";
+
   const bubble = isImage ? (
     <div
-      className={`overflow-hidden border border-[#EDE5DF] bg-[var(--chat-surface)] ${isClassic ? "rounded-[18px]" : "rounded-[20px]"} ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`}
+      className={`overflow-hidden border border-[#EDE5DF] bg-[var(--chat-surface)] ${isClassic ? "rounded-[18px]" : "rounded-[20px]"} ${selectionRing} ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -53,8 +62,8 @@ export function MessageBubble({
         removed
           ? removedBubbleClass
           : mine
-            ? `bg-[var(--chat-coral)] text-white ${isClassic ? "rounded-[18px_18px_6px_18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_7px_20px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
-            : `border border-[#EDE5DF] bg-[var(--chat-surface)] text-[var(--chat-text)] ${isClassic ? "rounded-[18px_18px_18px_6px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_20px_7px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
+            ? `bg-[var(--chat-coral)] text-white ${isClassic ? "rounded-[18px_18px_6px_18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_7px_20px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${selectionRing} ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
+            : `border border-[#EDE5DF] bg-[var(--chat-surface)] text-[var(--chat-text)] ${isClassic ? "rounded-[18px_18px_18px_6px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_20px_7px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${selectionRing} ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
       }
     >
       {displayBody}
