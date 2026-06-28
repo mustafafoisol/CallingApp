@@ -16,7 +16,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, skipped: "missing supabase env" });
   }
 
-  // Presence is off — ping DB only; never update profiles.last_seen_at.
   const supabase = createClient(url, key);
   const { error } = await supabase.from("profiles").select("id").limit(1);
 

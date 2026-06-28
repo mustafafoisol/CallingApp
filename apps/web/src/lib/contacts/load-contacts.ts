@@ -8,6 +8,7 @@ export interface FriendProfile {
   id: string;
   public_id: string;
   display_name: string | null;
+  last_seen_at: string | null;
 }
 
 export interface Contact {
@@ -53,7 +54,7 @@ async function loadContactsImpl(
   const { data: friendships } = await supabase
     .from("friendships")
     .select(
-      "id, requester_id, addressee_id, requester:profiles!friendships_requester_id_fkey(id, public_id, display_name), addressee:profiles!friendships_addressee_id_fkey(id, public_id, display_name)",
+      "id, requester_id, addressee_id, requester:profiles!friendships_requester_id_fkey(id, public_id, display_name, last_seen_at), addressee:profiles!friendships_addressee_id_fkey(id, public_id, display_name, last_seen_at)",
     )
     .eq("status", "accepted")
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);

@@ -2,7 +2,7 @@ import type { Profile } from "@calling-app/core";
 
 export interface ContactRow {
   friendshipId: string;
-  profile: Pick<Profile, "id" | "public_id" | "display_name">;
+  profile: Pick<Profile, "id" | "public_id" | "display_name" | "last_seen_at">;
   conversationId: string | null;
 }
 
