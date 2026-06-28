@@ -14,6 +14,9 @@ export function ContactsSidebar({
   const addFriendHref = activeConversationId
     ? `/chat/${activeConversationId}?addFriend=1`
     : "/home?addFriend=1";
+  const settingsHref = activeConversationId
+    ? `/chat/${activeConversationId}?settings=1`
+    : "/home?settings=1";
 
   return (
     <div className="flex h-full flex-col bg-[var(--chat-sidebar)]">
@@ -58,7 +61,7 @@ export function ContactsSidebar({
 
       <div className="border-t border-[var(--chat-border)] px-3 py-2">
         <Link
-          href="/settings"
+          href={settingsHref}
           className="flex items-center gap-2.5 rounded-[13px] px-3 py-2.5 text-sm text-[var(--chat-muted)] transition-colors hover:bg-[var(--chat-hover)] hover:text-[var(--chat-text)]"
         >
           <Settings className="h-4 w-4" />
