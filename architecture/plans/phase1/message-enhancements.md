@@ -1,6 +1,6 @@
 # Plan: Message Enhancements
 
-Typing indicators, timestamps, edit/delete, and rich content.
+Timestamps, edit/delete, image attachments, and optimistic sends. (Typing indicators moved to [Phase 3](../phase3/typing-indicators.md).)
 
 ## Phase
 
@@ -15,12 +15,8 @@ Typing indicators, timestamps, edit/delete, and rich content.
 **Files:** `chat-view.tsx` only
 
 ### 2. Typing indicators
-- Supabase Realtime **Broadcast** channel per conversation (not postgres_changes)
-- Sender broadcasts `{ type: "typing", userId }` on input debounce
-- Receiver shows "Alex is typing..." below message list
-- Auto-clear after 3s idle
 
-**New:** `apps/web/src/lib/chat/typing.ts`
+**Deferred to Phase 3** — see [typing-indicators.md](../phase3/typing-indicators.md).
 
 ### 3. Edit own messages
 - Migration: add `edited_at` nullable column
@@ -42,11 +38,10 @@ Typing indicators, timestamps, edit/delete, and rich content.
 
 ## Recommended order
 
-1. Timestamps (quick win)
-2. Optimistic sends (reliability UX)
-3. Typing indicators
-4. Edit (optional)
-5. Image attachments
+1. Timestamps (quick win) — done
+2. Optimistic sends (reliability UX) — done
+3. Image attachments — **next**
+4. Edit (optional v1.1)
 
 **Related:** [emoji-support.md](./emoji-support.md) (picker, no schema), [message-deletion.md](./message-deletion.md) (hard delete, v1.1)
 
@@ -67,7 +62,7 @@ alter table public.messages
 
 Per sub-feature:
 - [x] Timestamps visible and correct timezone
-- [ ] Typing indicator appears/disappears reliably
+- Typing indicator — deferred to [Phase 3](../phase3/typing-indicators.md)
 - [ ] User can edit only own messages within 15 min (optional rule)
 - [ ] Delete: see [message-deletion.md](./message-deletion.md) acceptance criteria
 - [ ] Images upload and display inline
@@ -83,7 +78,7 @@ Per sub-feature:
 |-------------|--------|
 | Timestamps | 2h |
 | Optimistic sends | 4h |
-| Typing | 1 day |
+| Typing | See [Phase 3](../phase3/typing-indicators.md) |
 | Edit | 0.5 day |
 | Delete | See [message-deletion.md](./message-deletion.md) (~1 day) |
 | Images | 2 days |

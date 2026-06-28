@@ -4,7 +4,7 @@ Umbrella specification for Phase 1. Sub-docs cover implementation detail; **this
 
 ## Vision
 
-A user can open CallingApp, see their contacts with unread indicators and message previews, open a conversation, read full history, send text and images in real time, and know when the other person is typing — all in a polished mobile-first UI.
+A user can open a conversation, read full scrollable history, send text and images in real time with instant feedback — all in a polished mobile-first UI. Home unread badges, live previews, and typing indicators are Phase 3.
 
 ## Current baseline
 
@@ -101,7 +101,7 @@ sequenceDiagram
 - [ ] Text bubbles: distinct mine vs theirs styling
 - [ ] Image bubbles: inline preview, tap to expand (optional v1)
 - [ ] "Load older messages" or infinite scroll at top
-- [ ] Typing indicator below list
+- Typing indicator — Phase 3 ([typing-indicators.md](../phase3/typing-indicators.md))
 - [ ] Compose bar: multiline input, send button, attach image button
 - [ ] Pending/failed send states
 - [ ] Empty thread state
@@ -119,9 +119,10 @@ sequenceDiagram
 |---|---------|-----|---------------|
 | 0 | Legacy cleanup | [database-cleanup.md](./database-cleanup.md) | Drop `calls` table |
 | 1 | History | [message-pagination.md](./message-pagination.md) | None |
-| 2 | Message UX | [message-enhancements.md](./message-enhancements.md) | `edited_at`, `deleted_at`, `attachment_url`, `type` enum |
-| 3 | Unread state | [unread-and-read-state.md](./unread-and-read-state.md) | `conversation_reads` table |
-| 4 | Home integration | This doc | Query joins for preview + unread |
+| 2 | Message UX | [message-enhancements.md](./message-enhancements.md) | `edited_at`, `attachment_url`, `type` enum |
+| 2b | Emoji | [emoji-support.md](./emoji-support.md) | None |
+| 2c | Delete | [message-deletion.md](./message-deletion.md) | DELETE RLS, delete trigger |
+| 3 | Unread + home + notifications | [Phase 3](../phase3/README.md) | `conversation_reads` table |
 
 ### Recommended v1 scope vs v1.1
 
@@ -130,10 +131,13 @@ sequenceDiagram
 | Pagination | Yes | — |
 | Timestamps + day groups | Yes | — |
 | Optimistic text send | Yes | — |
-| Typing indicator | Yes | — |
 | Image attachments | Yes | — |
-| Unread badges + preview | Yes | — |
-| Edit/delete messages | — | Yes |
+| Typing indicator | — | Phase 3 |
+| Unread badges + preview | — | Phase 3 |
+| Hard delete messages | — | Yes ([message-deletion.md](./message-deletion.md)) |
+| Edit messages | — | Yes |
+| Emoji picker | Yes | — |
+| In-app message notifications | — | Phase 3 ([message-notifications.md](../phase3/message-notifications.md)) |
 | Image lightbox | — | Yes |
 | Infinite scroll (vs button) | Either | — |
 
@@ -144,8 +148,8 @@ sequenceDiagram
 | `apps/web/src/app/(app)/chat/[id]/chat-view.tsx` | Major refactor → decompose into chat components |
 | `apps/web/src/app/(app)/chat/[id]/page.tsx` | Extended message query fields |
 | `apps/web/src/app/(app)/home/page.tsx` | Preview text, unread counts |
-| `apps/web/src/components/chat/` | **New** — `MessageList`, `MessageBubble`, `ComposeBar`, `DaySeparator`, `TypingIndicator` |
-| `apps/web/src/lib/chat/` | **New** — `typing.ts`, `format-timestamp.ts`, `upload-image.ts` |
+| `apps/web/src/components/chat/` | **New** — `MessageList`, `MessageBubble`, `ComposeBar`, `DaySeparator` |
+| `apps/web/src/lib/chat/` | **New** — `format-timestamp.ts`, `upload-image.ts` |
 | `supabase/migrations/` | New migrations for reads + message columns + storage bucket |
 | `packages/core/src/types.ts` | Extended `Message` type |
 
@@ -159,7 +163,7 @@ Record decisions here as we refine:
 | 2 | Max image size / formats (e.g. 5MB, jpeg/png/webp)? | _TBD_ |
 | 3 | Image compression client-side before upload? | _TBD_ |
 | 4 | Load older: button vs infinite scroll? | _TBD_ |
-| 5 | Edit/delete in v1 or defer to v1.1? | _TBD_ (default: v1.1) |
+| 5 | Edit/delete in v1 or defer to v1.1? | **Hard delete v1.1** ([message-deletion.md](./message-deletion.md)); edit optional v1.1. No placeholder on delete. |
 | 6 | Last message preview on home: text only or "[Image]" for images? | _TBD_ |
 | 7 | Show own messages in preview or only friend's last message? | _TBD_ |
 

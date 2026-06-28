@@ -153,5 +153,5 @@ Changes:
 
 | Doc | Relationship |
 |-----|--------------|
-| [message-enhancements.md](./message-enhancements.md) | Images/typing separate; emoji does not use `type: image` |
+| [message-enhancements.md](./message-enhancements.md) | Images separate; emoji does not use `type: image` |
 | [group-chat.md](../phase2/group-chat.md) | Same picker UX in group threads once shipped |

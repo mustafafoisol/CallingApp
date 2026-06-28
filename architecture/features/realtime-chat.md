@@ -110,8 +110,8 @@ Trigger `handle_new_message()` updates `conversations.last_message_at` on every 
 
 | Limitation | Plan |
 |------------|------|
-| No typing indicators | [message-enhancements.md](../plans/phase1/message-enhancements.md) |
-| No read receipts | [unread-and-read-state.md](../plans/phase1/unread-and-read-state.md) |
+| No typing indicators | [typing-indicators.md](../plans/phase3/typing-indicators.md) (Phase 3) |
+| No unread badges / read state | [unread-and-read-state.md](../plans/phase3/unread-and-read-state.md) (Phase 3) |
 | No attachments | [message-enhancements.md](../plans/phase1/message-enhancements.md) |
 | No edit/delete | [message-enhancements.md](../plans/phase1/message-enhancements.md) |
 | Realtime-only delivery (fixed) | Sender now appends from INSERT response — see [troubleshooting.md](../feature-tests/chat/troubleshooting.md) |

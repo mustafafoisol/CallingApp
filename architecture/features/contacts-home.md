@@ -73,6 +73,7 @@ Then map in memory by canonical pair.
 | Future need | Approach |
 |-------------|----------|
 | Last message preview | Join latest message per conversation |
-| Unread badge | See [unread-and-read-state.md](../plans/phase1/unread-and-read-state.md) |
-| Online indicator | See [avatars-and-presence.md](../plans/phase2/avatars-and-presence.md) |
+| Unread badge | Phase 3 — [unread-and-read-state.md](../plans/phase3/unread-and-read-state.md) |
+| Profile avatars | [profile-pictures.md](../plans/phase2/profile-pictures.md) |
+| Online indicator | **Off** — [disable-presence.md](../plans/phase2/disable-presence.md) |
 | Search contacts | Client-side filter on display_name / public_id |
