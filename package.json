@@ -1,0 +1,14 @@
+{
+  "name": "calling-app",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @calling-app/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

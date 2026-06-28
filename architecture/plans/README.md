@@ -1,0 +1,49 @@
+# Future Rollout Plans
+
+Phased roadmap for extending CallingApp. Each phase has its own folder with detailed plan docs.
+
+**Active phase:** [Phase 1 — End-to-End Chat](./phase1/README.md)
+
+## Phases
+
+| Phase | Theme | Status | Index |
+|-------|-------|--------|-------|
+| 1 | End-to-end chat + good UI | **Active** | [phase1/README.md](./phase1/README.md) |
+| 2 | Social & identity | Planned | [phase2/README.md](./phase2/README.md) |
+| 3 | Platform & reach (PWA, push) | Planned | [phase3/README.md](./phase3/README.md) |
+| 4 | Voice & video calling | Deferred | [phase4/README.md](./phase4/README.md) |
+
+```mermaid
+flowchart LR
+  P1[Phase1 Chat] --> P2[Phase2 Social]
+  P2 --> P3[Phase3 Platform]
+  P3 --> P4[Phase4 Calls]
+```
+
+## Phase 1 at a glance
+
+| Doc | Effort |
+|-----|--------|
+| [end-to-end-chat.md](./phase1/end-to-end-chat.md) | Umbrella spec |
+| [database-cleanup.md](./phase1/database-cleanup.md) | Small |
+| [message-pagination.md](./phase1/message-pagination.md) | Small |
+| [message-enhancements.md](./phase1/message-enhancements.md) | Medium |
+| [unread-and-read-state.md](./phase1/unread-and-read-state.md) | Medium |
+
+## Guiding principles
+
+1. **Chat-first** — Text messaging remains the core experience; other features augment it.
+2. **RLS by default** — New tables and mutations must ship with row-level security policies.
+3. **Schema before UI** — Migrations and types land before pages and components.
+4. **Document on ship** — Completed work updates `architecture/features/`; mark phase exit criteria done.
+
+## How to execute a plan
+
+1. Read the phase README and umbrella spec (Phase 1: [end-to-end-chat.md](./phase1/end-to-end-chat.md)).
+2. Read the specific plan doc end-to-end.
+3. Create a migration if schema changes are required.
+4. Update `packages/core` types and utilities.
+5. Implement API routes (if needed), then UI.
+6. Add or extend unit tests.
+7. Update the feature doc under `architecture/features/`.
+8. Check off exit criteria in the phase README.
