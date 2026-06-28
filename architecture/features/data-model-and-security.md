@@ -12,7 +12,6 @@ erDiagram
   profiles ||--o{ conversations : "user_a"
   profiles ||--o{ conversations : "user_b"
   conversations ||--o{ messages : contains
-  conversations ||--o{ calls : "legacy unused"
 
   profiles {
     uuid id PK
@@ -107,12 +106,6 @@ erDiagram
 
 **Index:** `messages_conversation_created_idx (conversation_id, created_at DESC)`
 
-### `calls` (legacy — unused by app)
-
-Created in initial migration for prior voice/video feature. App code no longer references this table. See [database-cleanup.md](../plans/phase1/database-cleanup.md).
-
-Migrations `20250625000002` and `20250625000003` add realtime and SDP columns for calls — also unused. Cleanup planned in [Phase 1](../plans/phase1/database-cleanup.md).
-
 ## Triggers
 
 | Trigger | Event | Function | Effect |
@@ -155,25 +148,21 @@ No INSERT policy for clients — conversations created only by trigger (security
 | `messages_select_participant` | SELECT | User in parent conversation |
 | `messages_insert_participant` | INSERT | User is sender, in conversation, and friendship is `accepted` |
 
-### `calls` (legacy)
-
-Policies exist but app does not use them.
-
 ## Realtime publication
 
 Tables in `supabase_realtime`:
 - `messages` — actively used by chat
-- `calls` — legacy, unused
 
 ## Migrations
 
 | File | Purpose |
 |------|---------|
 | `20250625000001_initial_schema.sql` | Full schema, triggers, RLS, realtime |
-| `20250625000002_realtime_calls.sql` | Idempotent calls realtime add |
-| `20250625000003_call_signaling.sql` | `offer_sdp`, `answer_sdp` on calls |
+| `20250625000002_realtime_calls.sql` | Historical — calls realtime (superseded by 004) |
+| `20250625000003_call_signaling.sql` | Historical — SDP columns on calls (superseded by 004) |
+| `20250627000001_drop_calls.sql` | Drops legacy `calls` table and removes from realtime |
 
-**New deployments:** Run migration 001 at minimum. Migrations 002–003 are harmless but unnecessary for chat-only.
+**New deployments:** Run all migrations in order. Migration 004 removes the `calls` artifacts created by 001–003.
 
 ## Canonical participant ordering
 
@@ -184,6 +173,14 @@ Utility: `canonicalizeParticipants()` in `packages/core/src/conversation.ts`.
 Used by:
 - DB trigger `handle_friendship_accepted`
 - Home page conversation lookup
+
+## Planned schema (Phase 2)
+
+| Addition | Plan |
+|----------|------|
+| `blocks` table (directional block) | [remove-and-block-friends.md](../plans/phase2/remove-and-block-friends.md) |
+| Storage bucket `avatars` + `profiles.avatar_url` | [profile-pictures.md](../plans/phase2/profile-pictures.md) |
+| `last_seen_at` | Unused — [disable-presence.md](../plans/phase2/disable-presence.md) |
 
 ## Security checklist for new tables
 

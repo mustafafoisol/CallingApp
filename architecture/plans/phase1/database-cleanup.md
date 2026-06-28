@@ -41,10 +41,10 @@ drop table if exists public.calls;
 
 ## Acceptance criteria
 
-- [ ] Migration runs cleanly on fresh and existing databases
-- [ ] `pnpm build` passes
-- [ ] No code references `calls` table
-- [ ] Feature doc updated
+- [x] Migration runs cleanly on fresh and existing databases
+- [x] `pnpm build` passes
+- [x] No code references `calls` table
+- [x] Feature doc updated
 
 ## Risks
 

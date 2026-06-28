@@ -10,8 +10,11 @@
 | [end-to-end-chat.md](./end-to-end-chat.md) | **Start here** — umbrella spec and refinement doc |
 | [database-cleanup.md](./database-cleanup.md) | Remove legacy `calls` schema |
 | [message-pagination.md](./message-pagination.md) | Load older message history |
-| [message-enhancements.md](./message-enhancements.md) | Timestamps, typing, optimistic sends, images |
+| [message-enhancements.md](./message-enhancements.md) | Timestamps, typing, optimistic sends, images, edit |
+| [emoji-support.md](./emoji-support.md) | Emoji picker + rendering (no schema) |
 | [unread-and-read-state.md](./unread-and-read-state.md) | Unread badges and read cursors |
+| [message-notifications.md](./message-notifications.md) | Global Realtime listener, live home updates, browser toasts |
+| [message-deletion.md](./message-deletion.md) | Hard delete — message block gone entirely |
 
 ## Execution order
 
@@ -19,17 +22,23 @@
 flowchart TD
   A[database-cleanup] --> B[message-pagination]
   B --> C[timestamps + day separators]
-  C --> D[optimistic sends]
-  D --> E[typing indicators]
-  E --> F[image attachments]
-  F --> G[unread counts + home preview]
-  G --> H["edit/delete (optional v1.1)"]
+  C --> D[emoji-support]
+  D --> E[optimistic sends]
+  E --> F[typing indicators]
+  F --> G[image attachments]
+  G --> H[unread counts + home preview]
+  H --> I[message-notifications]
+  I --> J[message-deletion hard delete]
+  J --> K["edit (optional v1.1)"]
 ```
 
 1. [database-cleanup.md](./database-cleanup.md)
 2. [message-pagination.md](./message-pagination.md)
-3. [message-enhancements.md](./message-enhancements.md) — timestamps → optimistic → typing → images → edit/delete (stretch)
-4. [unread-and-read-state.md](./unread-and-read-state.md)
+3. [message-enhancements.md](./message-enhancements.md) — timestamps → optimistic → typing → images → edit (stretch)
+4. [emoji-support.md](./emoji-support.md) — after timestamps (can run in parallel with optimistic)
+5. [unread-and-read-state.md](./unread-and-read-state.md)
+6. [message-notifications.md](./message-notifications.md) — after unread-and-read-state
+7. [message-deletion.md](./message-deletion.md) — hard delete (v1.1)
 
 ## Depends on
 
@@ -46,7 +55,11 @@ Phase 1 is complete when:
 - [ ] Image attachments send and display inline
 - [ ] Home contacts show unread count and last message preview
 - [ ] Opening a chat clears unread state
-- [ ] Legacy `calls` table removed from database
+- [ ] New messages update home list and unread badges without refresh
+- [ ] No spurious alerts while viewing the active chat
+- [ ] Emoji picker works in compose bar
+- [ ] User can hard-delete own messages (block gone for both users)
+- [x] Legacy `calls` table removed from database
 
 ## Next phase
 
