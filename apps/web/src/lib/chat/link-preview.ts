@@ -21,25 +21,61 @@ export function getDomain(url: string): string {
   }
 }
 
-export function toEmbedUrl(url: string): string {
+export function extractYoutubeVideoId(url: string): string | null {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.replace(/^www\./, "");
 
     if (host === "youtube.com" || host === "m.youtube.com") {
-      const videoId = parsed.searchParams.get("v");
-      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+      return parsed.searchParams.get("v");
     }
 
     if (host === "youtu.be") {
-      const videoId = parsed.pathname.slice(1);
-      if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+      const id = parsed.pathname.slice(1).split("/")[0];
+      return id || null;
     }
   } catch {
-    return url;
+    return null;
   }
 
+  return null;
+}
+
+export function youtubeThumbnailUrl(videoId: string): string {
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+export function buildYoutubePreview(url: string): LinkPreviewData | null {
+  const videoId = extractYoutubeVideoId(url);
+  if (!videoId) return null;
+
+  return {
+    url,
+    title: "YouTube video",
+    description: null,
+    image: youtubeThumbnailUrl(videoId),
+    siteName: "YouTube",
+  };
+}
+
+export function toEmbedUrl(url: string): string {
+  const videoId = extractYoutubeVideoId(url);
+  if (videoId) return `https://www.youtube.com/embed/${videoId}`;
   return url;
+}
+
+export function withYoutubeThumbnail(
+  data: LinkPreviewData,
+  url: string,
+): LinkPreviewData {
+  const videoId = extractYoutubeVideoId(url);
+  if (!videoId) return data;
+
+  return {
+    ...data,
+    image: data.image ?? youtubeThumbnailUrl(videoId),
+    siteName: data.siteName ?? "YouTube",
+  };
 }
 
 export function isPublicHttpUrl(raw: string): boolean {
