@@ -241,8 +241,8 @@ export function ChatView({
   let lastDay: string | null = null;
 
   return (
-    <div className="mx-auto flex h-dvh max-w-lg flex-col bg-[var(--chat-bg)]">
-      <ChatHeader friendName={friendName} />
+    <div className="flex h-full min-h-0 flex-col bg-[var(--chat-bg)]">
+      <ChatHeader friendName={friendName} variant="classic" />
 
       {realtimeStatus !== "SUBSCRIBED" && realtimeStatus !== "connecting" && (
         <p className="bg-[#FCEDE8] px-4 py-2 text-center text-xs text-[var(--chat-muted)]">
@@ -252,7 +252,7 @@ export function ChatView({
 
       <div
         ref={scrollContainerRef}
-        className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6"
+        className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-7 py-5"
       >
         {hasMore && (
           <div className="flex justify-center">
@@ -288,7 +288,7 @@ export function ChatView({
             <div key={message.id} className="flex flex-col gap-4">
               {showDay && (
                 <div className="flex justify-center">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-[#A8998F]">
+                  <span className="rounded-full bg-[#F1E9E3] px-3.5 py-1.5 text-xs font-medium text-[#A8998F]">
                     {formatDayLabel(message.created_at)}
                   </span>
                 </div>
@@ -298,6 +298,8 @@ export function ChatView({
                 mine={mine}
                 createdAt={message.created_at}
                 status={message.status}
+                senderName={friendName}
+                variant="classic"
                 onRetry={
                   message.status === "failed" && message.clientId
                     ? () => void retryMessage(message.clientId!, message.body)

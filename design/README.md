@@ -8,8 +8,8 @@ Extracted template: `chat-ui-template.html` (run `node scripts/extract-design.mj
 
 | Option | Layout | Used in app |
 |--------|--------|-------------|
-| **A · Classic** | Sidebar + chat panel | `/home` contacts list |
-| **B · Focused** | Single-column chat | `/chat/[id]` |
+| **A · Classic** | Sidebar + chat panel | `/home` + `/chat/[id]` (split at `lg:`) |
+| **B · Focused** | Single-column chat | Mobile `/chat/[id]` only (back to sidebar) |
 | **C · Soft two-tone** | Dark rail + coral header | Future / desktop |
 
 ## Design tokens

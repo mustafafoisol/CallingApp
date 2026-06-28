@@ -1,36 +1,48 @@
 # UI Shell
 
-Mobile-first layout, navigation, and reusable UI primitives.
+Warm chat-first layout using design tokens from `design/README.md`. Messaging uses **Option A · Classic** (sidebar + chat panel); secondary pages use a simple titled shell.
 
 ## Design direction
 
-- **Dark theme** — background `#0b1020`, card surfaces, blue primary accent
-- **Mobile-first** — max width `max-w-lg`, full viewport height (`min-h-dvh`)
-- **Sticky chrome** — header top, nav bottom, scrollable main content
+- **Warm palette** — `--chat-bg`, `--chat-sidebar`, `--chat-coral` (see `globals.css`)
+- **Option A · Classic** — 340px contacts sidebar + chat panel, max width 1200px
+- **Responsive** — split view at `lg:`; mobile shows sidebar *or* chat full-width
+- **Font** — Plus Jakarta Sans via `next/font/google`
 
-## App shell
+## Messages shell (Option A)
 
-`apps/web/src/components/app-shell.tsx`
+`apps/web/src/components/messages/messages-shell.tsx`
+
+```
+┌──────────────┬────────────────────────────┐
+│  Sidebar     │  Chat panel                │
+│  Messages    │  Header (friend + actions) │
+│  Search      │  Message thread            │
+│  Contacts    │  Compose bar               │
+│  Settings    │                            │
+└──────────────┴────────────────────────────┘
+```
+
+| File | Role |
+|------|------|
+| `messages-shell.tsx` | Split layout wrapper |
+| `contacts-sidebar.tsx` | Header, search, contact list, settings link |
+| `chat-empty-state.tsx` | Right panel placeholder on `/home` |
+| `lib/contacts/load-contacts.ts` | Shared contact + preview loading |
+
+On mobile, `/home` shows the sidebar only; `/chat/[id]` shows the chat panel with a back link to `/home`. At `lg:` both panels are visible.
+
+## App shell (secondary pages)
+
+`apps/web/src/components/app-shell.tsx` — used for `/friends/add` and `/settings` only.
 
 ```
 ┌─────────────────────────┐
-│  Header (title)         │  sticky top
+│  Header (title)         │
 ├─────────────────────────┤
-│                         │
-│  Main content           │  flex-1, scrollable
-│                         │
-├─────────────────────────┤
-│  Home | Add | Settings  │  sticky bottom nav
+│  Main content           │
 └─────────────────────────┘
 ```
-
-### Bottom navigation
-
-| Label | Route | Icon |
-|-------|-------|------|
-| Home | `/home` | `Home` |
-| Add | `/friends/add` | `UserPlus` |
-| Settings | `/settings` | `Settings` |
 
 ## Page inventory
 
@@ -38,9 +50,9 @@ Mobile-first layout, navigation, and reusable UI primitives.
 |------|-------|------|
 | `/login` | Standalone centered card | Public |
 | `/onboarding` | Standalone centered | Auth (no shell) |
-| `/home` | AppShell "Contacts" | Protected |
+| `/home` | MessagesShell (empty chat panel) | Protected |
+| `/chat/[id]` | MessagesShell (sidebar + chat) | Protected |
 | `/friends/add` | AppShell "Add Friend" | Protected |
-| `/chat/[id]` | AppShell (friend name) | Protected |
 | `/settings` | AppShell "Settings" | Protected |
 
 ## UI primitives
@@ -63,7 +75,7 @@ Built with:
 - `--background`, `--foreground`
 - `--primary`, `--muted`, `--border`, `--danger`, `--accent`
 
-Font: Geist Sans via `next/font/google` in root layout.
+Font: Plus Jakarta Sans via `next/font/google` in root layout.
 
 ## PWA metadata (partial)
 
@@ -78,14 +90,14 @@ Service worker not implemented — see [pwa.md](../plans/phase3/pwa.md).
 
 ## Chat-specific layout
 
-`ChatView` uses `h-[calc(100dvh-7rem)]` to account for shell header + bottom nav within the chat page.
+`ChatView` fills the messages shell right panel (`h-full`, flex column). `ChatHeader` uses `variant="classic"` (no back button on desktop; search + more actions). Received bubbles show a small avatar in classic mode.
 
 ## Extension guidelines
 
 | Need | Approach |
 |------|----------|
-| New tab | Add to `navItems` in `app-shell.tsx` |
+| Sidebar footer link | Add to `contacts-sidebar.tsx` |
 | Toasts | Add sonner or similar; wrap in root layout |
 | Loading states | `loading.tsx` per route segment |
 | Error boundaries | `error.tsx` per route segment |
-| Responsive desktop | Widen `max-w-lg` or add sidebar at `md:` breakpoint |
+| Conversation search | Wire sidebar search input (currently placeholder) |

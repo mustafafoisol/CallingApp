@@ -49,11 +49,11 @@ export function ComposeBar({
   return (
     <form
       onSubmit={onSubmit}
-      className="relative shrink-0 px-5 pb-5 pt-3"
+      className="relative shrink-0 px-5 pb-4 pt-3.5"
     >
       <div
         ref={composeRef}
-        className="relative flex items-center gap-3 rounded-[28px] border border-[#EBE3DD] bg-[var(--chat-surface)] px-4 py-2 shadow-[0_2px_12px_rgba(60,40,30,0.05)]"
+        className="relative flex items-center gap-2.5 rounded-[26px] border border-[#EBE3DD] bg-[var(--chat-surface)] py-1.5 pr-2 pl-4"
       >
         <button
           type="button"

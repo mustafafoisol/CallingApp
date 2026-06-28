@@ -13,7 +13,11 @@ export function ChatAvatar({
   showOnline?: boolean;
 }) {
   const sizeClass =
-    size === "sm" ? "h-8 w-8 text-xs" : size === "lg" ? "h-12 w-12 text-lg" : "h-11 w-11 text-base";
+    size === "sm"
+      ? "h-[30px] w-[30px] text-xs"
+      : size === "lg"
+        ? "h-12 w-12 text-lg"
+        : "h-11 w-11 text-base";
 
   return (
     <div className="relative shrink-0">

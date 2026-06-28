@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { MessagesShell } from "@/components/messages/messages-shell";
+import { loadContacts } from "@/lib/contacts/load-contacts";
 import { createClient } from "@/lib/supabase/server";
 import { ChatView } from "./chat-view";
 
@@ -33,28 +35,33 @@ export default async function ChatPage({
       ? conversation.user_b_id
       : conversation.user_a_id;
 
-  const { data: friend } = await supabase
-    .from("profiles")
-    .select("id, display_name, public_id")
-    .eq("id", friendId)
-    .single();
-
-  const { data: recentMessages } = await supabase
-    .from("messages")
-    .select("id, sender_id, body, created_at")
-    .eq("conversation_id", id)
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const [{ data: friend }, { data: recentMessages }, contacts] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, display_name, public_id")
+        .eq("id", friendId)
+        .single(),
+      supabase
+        .from("messages")
+        .select("id, sender_id, body, created_at")
+        .eq("conversation_id", id)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      loadContacts(supabase, user.id),
+    ]);
 
   const messages = (recentMessages ?? []).slice().reverse();
 
   return (
-    <ChatView
-      conversationId={id}
-      currentUserId={user.id}
-      friendId={friendId}
-      friendName={friend?.display_name ?? "Friend"}
-      initialMessages={messages ?? []}
-    />
+    <MessagesShell contacts={contacts} activeConversationId={id}>
+      <ChatView
+        conversationId={id}
+        currentUserId={user.id}
+        friendId={friendId}
+        friendName={friend?.display_name ?? "Friend"}
+        initialMessages={messages ?? []}
+      />
+    </MessagesShell>
   );
 }

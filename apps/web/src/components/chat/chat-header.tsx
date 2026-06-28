@@ -1,31 +1,82 @@
 import Link from "next/link";
-import { ChevronLeft, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, MoreHorizontal, Search } from "lucide-react";
 import { ChatAvatar } from "./avatar";
 
-export function ChatHeader({ friendName }: { friendName: string }) {
+export function ChatHeader({
+  friendName,
+  variant = "classic",
+}: {
+  friendName: string;
+  variant?: "classic" | "focused";
+}) {
+  const isClassic = variant === "classic";
+
   return (
-    <header className="flex shrink-0 items-center gap-3.5 border-b border-[var(--chat-border)] bg-[var(--chat-surface)] px-5 py-4">
-      <Link
-        href="/home"
-        className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--chat-muted)] hover:bg-[var(--chat-hover)]"
-        aria-label="Back to messages"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </Link>
-      <ChatAvatar name={friendName} size="lg" showOnline />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-lg font-bold tracking-tight text-[var(--chat-text)]">
-          {friendName}
-        </p>
-        <p className="text-sm font-medium text-[#34B27B]">Active now</p>
+    <header
+      className={`flex shrink-0 items-center border-b border-[var(--chat-border)] bg-[var(--chat-surface)] ${
+        isClassic
+          ? "h-[74px] justify-between px-6"
+          : "gap-3.5 px-5 py-4"
+      }`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        {!isClassic && (
+          <Link
+            href="/home"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--chat-muted)] hover:bg-[var(--chat-hover)]"
+            aria-label="Back to messages"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+        )}
+        {isClassic && (
+          <Link
+            href="/home"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--chat-muted)] hover:bg-[var(--chat-hover)] lg:hidden"
+            aria-label="Back to messages"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+        )}
+        <ChatAvatar name={friendName} size={isClassic ? "md" : "lg"} showOnline />
+        <div className="min-w-0">
+          <p
+            className={`truncate font-semibold text-[var(--chat-text)] ${
+              isClassic ? "text-base" : "text-lg font-bold tracking-tight"
+            }`}
+          >
+            {friendName}
+          </p>
+          <p className="text-[12.5px] font-medium text-[#34B27B]">Active now</p>
+        </div>
       </div>
-      <button
-        type="button"
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-muted)]"
-        aria-label="More options"
-      >
-        <MoreHorizontal className="h-[18px] w-[18px]" />
-      </button>
+
+      {isClassic ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-muted)]"
+            aria-label="Search in conversation"
+          >
+            <Search className="h-[17px] w-[17px]" />
+          </button>
+          <button
+            type="button"
+            className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-muted)]"
+            aria-label="More options"
+          >
+            <MoreHorizontal className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-muted)]"
+          aria-label="More options"
+        >
+          <MoreHorizontal className="h-[18px] w-[18px]" />
+        </button>
+      )}
     </header>
   );
 }

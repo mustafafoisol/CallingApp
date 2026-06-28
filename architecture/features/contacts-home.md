@@ -30,9 +30,10 @@ Each contact card shows:
 
 | File | Role |
 |------|------|
-| `apps/web/src/app/(app)/home/page.tsx` | Server component: query + sort + render |
+| `apps/web/src/app/(app)/home/page.tsx` | Server component: load contacts, render MessagesShell |
+| `apps/web/src/lib/contacts/load-contacts.ts` | Shared contact query + sort |
+| `apps/web/src/components/messages/contacts-sidebar.tsx` | Sidebar UI (also shown on `/chat/[id]`) |
 | `packages/core/src/conversation.ts` | `canonicalizeParticipants()` for conversation lookup |
-| `apps/web/src/components/app-shell.tsx` | Page chrome with "Contacts" title |
 
 ## Data loading (server-side)
 
