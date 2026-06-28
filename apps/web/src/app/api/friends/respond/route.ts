@@ -31,16 +31,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request already handled" }, { status: 409 });
   }
 
-  const status = action === "accept" ? "accepted" : "blocked";
+  if (action === "accept") {
+    const { error } = await supabase
+      .from("friendships")
+      .update({ status: "accepted" })
+      .eq("id", friendshipId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, status: "accepted" });
+  }
 
   const { error } = await supabase
     .from("friendships")
-    .update({ status })
+    .delete()
     .eq("id", friendshipId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, status });
+  return NextResponse.json({ ok: true, status: "rejected" });
 }
