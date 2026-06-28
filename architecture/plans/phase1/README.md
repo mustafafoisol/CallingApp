@@ -10,7 +10,8 @@
 | [end-to-end-chat.md](./end-to-end-chat.md) | **Start here** — umbrella spec and refinement doc |
 | [database-cleanup.md](./database-cleanup.md) | Remove legacy `calls` schema |
 | [message-pagination.md](./message-pagination.md) | Load older message history |
-| [message-enhancements.md](./message-enhancements.md) | Timestamps, optimistic sends, images |
+| [message-enhancements.md](./message-enhancements.md) | Timestamps, optimistic sends |
+| [image-attachments.md](./image-attachments.md) | **Image upload + display** (backend → frontend commits) |
 | [emoji-support.md](./emoji-support.md) | Emoji picker + rendering (no schema) |
 | [message-deletion.md](./message-deletion.md) | Soft remove + per-user hide |
 
@@ -38,9 +39,10 @@ flowchart TD
 
 1. [database-cleanup.md](./database-cleanup.md) — done
 2. [message-pagination.md](./message-pagination.md) — done
-3. [message-enhancements.md](./message-enhancements.md) — timestamps, optimistic — done; **images next**
-4. [emoji-support.md](./emoji-support.md) — done
-5. [message-deletion.md](./message-deletion.md) — soft remove + per-user hide (v1.1 stretch)
+3. [message-enhancements.md](./message-enhancements.md) — timestamps, optimistic — done
+4. [image-attachments.md](./image-attachments.md) — compress + upload + inline display — done
+5. [emoji-support.md](./emoji-support.md) — done
+6. [message-deletion.md](./message-deletion.md) — soft remove + per-user hide (v1.1 stretch)
 
 ## Depends on
 
@@ -53,7 +55,7 @@ Phase 1 is complete when:
 - [x] User can scroll/load full message history
 - [x] Chat UI is polished (bubbles, timestamps, day groups, compose bar)
 - [x] Text sends feel instant (optimistic) with error recovery
-- [ ] Image attachments send and display inline
+- [x] Image attachments send and display inline (client compress to ≤1 MB)
 - [x] Emoji picker works in compose bar
 - [x] Legacy `calls` table removed from database
 - [x] User can remove own messages (both see "Message removed") and hide others' messages (viewer only) — **v1.1 stretch**

@@ -1,6 +1,6 @@
 # Realtime Chat
 
-1-on-1 text messaging between accepted friends with live delivery via Supabase Realtime.
+1-on-1 text and image messaging between accepted friends with live delivery via Supabase Realtime.
 
 ## User flow
 
@@ -37,10 +37,13 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 
 | Field | Constraint |
 |-------|------------|
-| `body` | 1–4000 characters |
-| `type` | `"text"` only (enum in schema) |
+| `body` | 1–4000 characters for `text`; empty for `image` |
+| `type` | `"text"` or `"image"` |
+| `attachment_url` | Required when `type` is `"image"` (public `chat-media` URL) |
 | `conversation_id` | Must reference existing conversation |
 | `sender_id` | Must be current user |
+
+**Image uploads:** Client compresses picks to ≤1 MB (max 1920px edge) via `browser-image-compression`, then uploads to `chat-media/{conversationId}/{uuid}.ext`. Home preview shows `[Image]`.
 
 ## File map
 
@@ -54,7 +57,9 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 | `apps/web/src/lib/chat/message-hides.ts` | Load hidden message IDs for a conversation |
 | `apps/web/src/components/chat/message-actions-menu.tsx` | Delete / hide action on bubbles |
 | `apps/web/src/lib/chat/optimistic.ts` | Pending/confirmed message state helpers |
-| `apps/web/src/components/chat/compose-bar.tsx` | Compose bar with emoji picker |
+| `apps/web/src/lib/chat/compress-image.ts` | Client-side downscale/compress to ≤1 MB |
+| `apps/web/src/lib/chat/upload-image.ts` | Upload compressed blob to `chat-media` |
+| `apps/web/src/components/chat/compose-bar.tsx` | Compose bar with emoji picker + image picker |
 | `apps/web/src/components/chat/emoji-picker-popover.tsx` | Emoji picker popover |
 | `packages/core/src/types.ts` | `Message`, `MessageType` interfaces |
 | `supabase/migrations/20250625000001_initial_schema.sql` | `messages` table, RLS, realtime publication |
