@@ -44,6 +44,7 @@ erDiagram
     uuid sender_id FK
     text body
     text type
+    text attachment_url
     timestamptz created_at
   }
 ```
@@ -100,8 +101,9 @@ erDiagram
 | `id` | uuid PK | |
 | `conversation_id` | uuid FK | ON DELETE CASCADE |
 | `sender_id` | uuid FK | Must equal `auth.uid()` on insert |
-| `body` | text | 1–4000 chars when active; empty when `removed_at` set |
-| `type` | text | `'text'` only |
+| `body` | text | 1–4000 chars for `text`; empty for `image` or when `removed_at` set |
+| `type` | text | `'text'` or `'image'` |
+| `attachment_url` | text | Public URL when `type='image'` |
 | `created_at` | timestamptz | |
 | `removed_at` | timestamptz | Nullable; global soft remove for sender |
 
@@ -116,6 +118,19 @@ erDiagram
 | `created_at` | timestamptz | |
 
 **PK:** `(user_id, message_id)` — per-user hide for others' messages.
+
+### Storage: `chat-media`
+
+| Setting | Value |
+|---------|-------|
+| Public | Yes (read via public URL) |
+| `file_size_limit` | 1 MB (1,048,576 bytes) |
+| Allowed MIME | `image/jpeg`, `image/png`, `image/webp` |
+| Path pattern | `{conversation_id}/{uuid}.{ext}` |
+
+RLS on `storage.objects`: insert/select only when `auth.uid()` is a participant in the conversation matching the first path segment.
+
+Client compresses images to ≤1 MB before upload (`browser-image-compression`).
 
 ## Triggers
 
@@ -182,6 +197,8 @@ Tables in `supabase_realtime`:
 | `20250625000002_realtime_calls.sql` | Historical — calls realtime (superseded by 004) |
 | `20250625000003_call_signaling.sql` | Historical — SDP columns on calls (superseded by 004) |
 | `20250627000001_drop_calls.sql` | Drops legacy `calls` table and removes from realtime |
+| `20250628100001_image_attachments.sql` | `attachment_url`, `type` image, body check for images |
+| `20250628100002_chat_media_storage.sql` | `chat-media` bucket + storage RLS |
 
 **New deployments:** Run all migrations in order. Migration 004 removes the `calls` artifacts created by 001–003.
 
