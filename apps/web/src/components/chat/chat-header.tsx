@@ -38,7 +38,7 @@ export function ChatHeader({
             <ChevronLeft className="h-5 w-5" />
           </Link>
         )}
-        <ChatAvatar name={friendName} size={isClassic ? "md" : "lg"} />
+        <ChatAvatar name={friendName} size={isClassic ? "md" : "lg"} showOnline />
         <div className="min-w-0">
           <p
             className={`truncate font-semibold text-[var(--chat-text)] ${
@@ -47,6 +47,7 @@ export function ChatHeader({
           >
             {friendName}
           </p>
+          <p className="text-[12.5px] font-medium text-[#34B27B]">Active now</p>
         </div>
       </div>
 
