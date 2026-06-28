@@ -1,6 +1,6 @@
 export type FriendshipStatus = "pending" | "accepted" | "blocked";
 
-export type MessageType = "text";
+export type MessageType = "text" | "image";
 
 export interface Profile {
   id: string;
@@ -32,6 +32,7 @@ export interface Message {
   sender_id: string;
   body: string;
   type: MessageType;
+  attachment_url: string | null;
   created_at: string;
   removed_at: string | null;
 }
