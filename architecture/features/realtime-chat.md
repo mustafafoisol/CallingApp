@@ -49,6 +49,7 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 | `apps/web/src/app/(app)/chat/[id]/page.tsx` | SSR: load conversation, verify participant, fetch last 50 messages |
 | `apps/web/src/app/(app)/chat/[id]/chat-view.tsx` | Client: realtime subscription, pagination, send form, bubble UI |
 | `apps/web/src/lib/chat/messages.ts` | `fetchOlderMessages()` cursor pagination helper |
+| `apps/web/src/lib/chat/optimistic.ts` | Pending/confirmed message state helpers |
 | `apps/web/src/components/chat/compose-bar.tsx` | Compose bar with emoji picker |
 | `apps/web/src/components/chat/emoji-picker-popover.tsx` | Emoji picker popover |
 | `packages/core/src/types.ts` | `Message`, `MessageType` interfaces |
@@ -84,7 +85,7 @@ supabase.channel(`messages:${conversationId}`)
 
 **Deduplication:** Before appending, checks `prev.some(m => m.id === row.id)`.
 
-**Send:** Client `INSERT` with `.select().single()` — appends returned row immediately (does not rely solely on Realtime). Shows inline error on failure.
+**Send (optimistic):** On submit, appends a pending bubble immediately and clears the compose input. Background `INSERT` with `.select().single()` replaces the pending row with the confirmed message. Realtime INSERT reconciles the same way if it arrives first. Failed sends show "Failed to send · Retry" on the bubble; compose-level error for first failure.
 
 **Realtime:** Subscribes after `getSession()`; logs channel status; banner if not `SUBSCRIBED`.
 

@@ -71,7 +71,7 @@ Per sub-feature:
 - [ ] User can edit only own messages within 15 min (optional rule)
 - [ ] Delete: see [message-deletion.md](./message-deletion.md) acceptance criteria
 - [ ] Images upload and display inline
-- [ ] Optimistic send feels instant; errors recoverable
+- [x] Optimistic send feels instant; errors recoverable
 
 ## Dependencies
 

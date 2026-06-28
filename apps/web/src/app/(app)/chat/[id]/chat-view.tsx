@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dayKey, formatDayLabel } from "@/lib/chat/format-time";
 import {
@@ -9,6 +9,13 @@ import {
   OLDER_MESSAGE_PAGE_SIZE,
   type MessageRow,
 } from "@/lib/chat/messages";
+import {
+  confirmPendingMessage,
+  createPendingMessage,
+  markMessageFailed,
+  reconcileIncomingMessage,
+  type ChatMessage,
+} from "@/lib/chat/optimistic";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ComposeBar } from "@/components/chat/compose-bar";
 import { MessageBubble } from "@/components/chat/message-bubble";
@@ -25,11 +32,12 @@ export function ChatView({
   friendName: string;
   initialMessages: MessageRow[];
 }) {
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    initialMessages.map((message) => ({ ...message, status: "confirmed" })),
+  );
   const [body, setBody] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<string>("connecting");
-  const [sending, setSending] = useState(false);
   const [hasMore, setHasMore] = useState(
     initialMessages.length >= INITIAL_MESSAGE_LIMIT,
   );
@@ -42,12 +50,15 @@ export function ChatView({
     null,
   );
 
-  function appendMessage(row: MessageRow) {
-    scrollToBottomRef.current = true;
-    setMessages((prev) =>
-      prev.some((m) => m.id === row.id) ? prev : [...prev, row],
-    );
-  }
+  const reconcileMessage = useCallback(
+    (row: MessageRow) => {
+      scrollToBottomRef.current = true;
+      setMessages((prev) =>
+        reconcileIncomingMessage(prev, row, currentUserId),
+      );
+    },
+    [currentUserId],
+  );
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
@@ -96,7 +107,7 @@ export function ChatView({
             filter: `conversation_id=eq.${conversationId}`,
           },
           (payload) => {
-            appendMessage(payload.new as MessageRow);
+            reconcileMessage(payload.new as MessageRow);
           },
         )
         .subscribe((status, err) => {
@@ -114,7 +125,7 @@ export function ChatView({
       cancelled = true;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, reconcileMessage]);
 
   async function loadOlderMessages() {
     if (loadingOlder || !hasMore || messages.length === 0) return;
@@ -157,17 +168,29 @@ export function ChatView({
 
   const MAX_MESSAGE_LENGTH = 4000;
 
-  async function sendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    const text = body.trim();
-    if (!text || sending) return;
+  function formatSendError(message: string) {
+    return message.includes("policy")
+      ? "Message not sent — friendship may not be accepted or session expired."
+      : message;
+  }
 
-    if (text.length > MAX_MESSAGE_LENGTH) {
-      setSendError(`Message must be ${MAX_MESSAGE_LENGTH} characters or fewer.`);
-      return;
+  async function sendText(text: string, existingClientId?: string) {
+    const clientId = existingClientId ?? crypto.randomUUID();
+
+    if (!existingClientId) {
+      const pending = createPendingMessage(clientId, currentUserId, text);
+      scrollToBottomRef.current = true;
+      setMessages((prev) => [...prev, pending]);
+    } else {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.clientId === clientId
+            ? { ...message, status: "pending" }
+            : message,
+        ),
+      );
     }
 
-    setSending(true);
     setSendError(null);
 
     const supabase = createClient();
@@ -182,21 +205,37 @@ export function ChatView({
       .select("id, sender_id, body, created_at")
       .single();
 
-    setSending(false);
-
     if (error) {
-      setSendError(
-        error.message.includes("policy")
-          ? "Message not sent — friendship may not be accepted or session expired."
-          : error.message,
-      );
+      setMessages((prev) => markMessageFailed(prev, clientId));
+      if (!existingClientId) {
+        setSendError(formatSendError(error.message));
+      }
       return;
     }
 
     if (data) {
-      appendMessage(data);
-      setBody("");
+      scrollToBottomRef.current = true;
+      setMessages((prev) => confirmPendingMessage(prev, clientId, data));
     }
+  }
+
+  async function sendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    const text = body.trim();
+    if (!text) return;
+
+    if (text.length > MAX_MESSAGE_LENGTH) {
+      setSendError(`Message must be ${MAX_MESSAGE_LENGTH} characters or fewer.`);
+      return;
+    }
+
+    setBody("");
+    await sendText(text);
+  }
+
+  async function retryMessage(clientId: string, text: string) {
+    setSendError(null);
+    await sendText(text, clientId);
   }
 
   let lastDay: string | null = null;
@@ -258,6 +297,12 @@ export function ChatView({
                 body={message.body}
                 mine={mine}
                 createdAt={message.created_at}
+                status={message.status}
+                onRetry={
+                  message.status === "failed" && message.clientId
+                    ? () => void retryMessage(message.clientId!, message.body)
+                    : undefined
+                }
               />
             </div>
           );
@@ -276,7 +321,6 @@ export function ChatView({
         onChange={setBody}
         onSubmit={sendMessage}
         placeholder={`Message ${friendName.split(" ")[0]}…`}
-        sending={sending}
       />
     </div>
   );

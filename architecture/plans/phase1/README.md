@@ -50,7 +50,7 @@ Phase 1 is complete when:
 
 - [x] User can scroll/load full message history
 - [x] Chat UI is polished (bubbles, timestamps, day groups, compose bar)
-- [ ] Text sends feel instant (optimistic) with error recovery
+- [x] Text sends feel instant (optimistic) with error recovery
 - [ ] Typing indicator works between two users
 - [ ] Image attachments send and display inline
 - [ ] Home contacts show unread count and last message preview
