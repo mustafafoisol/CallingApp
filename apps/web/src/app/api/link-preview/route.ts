@@ -3,6 +3,7 @@ import {
   getDomain,
   isPublicHttpUrl,
   parseOpenGraph,
+  withYoutubeThumbnail,
   type LinkPreviewData,
 } from "@/lib/chat/link-preview";
 
@@ -32,17 +33,18 @@ export async function GET(request: Request) {
     });
 
     if (!response.ok) {
-      return NextResponse.json(fallback);
+      return NextResponse.json(withYoutubeThumbnail(fallback, url));
     }
 
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("text/html")) {
-      return NextResponse.json(fallback);
+      return NextResponse.json(withYoutubeThumbnail(fallback, url));
     }
 
     const html = await response.text();
-    return NextResponse.json(parseOpenGraph(html.slice(0, 200_000), url));
+    const preview = parseOpenGraph(html.slice(0, 200_000), url);
+    return NextResponse.json(withYoutubeThumbnail(preview, url));
   } catch {
-    return NextResponse.json(fallback);
+    return NextResponse.json(withYoutubeThumbnail(fallback, url));
   }
 }

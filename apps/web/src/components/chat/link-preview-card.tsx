@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
-import { getDomain, type LinkPreviewData } from "@/lib/chat/link-preview";
+import {
+  buildYoutubePreview,
+  getDomain,
+  withYoutubeThumbnail,
+  type LinkPreviewData,
+} from "@/lib/chat/link-preview";
+import {
+  readLinkPreviewCache,
+  writeLinkPreviewCache,
+} from "@/lib/chat/link-preview-cache";
 
 export function LinkPreviewCard({
   url,
@@ -13,17 +22,33 @@ export function LinkPreviewCard({
   mine: boolean;
   onOpen: (url: string) => void;
 }) {
-  const [preview, setPreview] = useState<LinkPreviewData | null>(null);
+  const [preview, setPreview] = useState<LinkPreviewData | null>(() => {
+    return readLinkPreviewCache(url) ?? buildYoutubePreview(url);
+  });
 
   useEffect(() => {
+    const cached = readLinkPreviewCache(url);
+    const youtubeFallback = buildYoutubePreview(url);
+
+    if (cached) {
+      setPreview(withYoutubeThumbnail(cached, url));
+      return;
+    }
+
+    if (youtubeFallback) {
+      setPreview(youtubeFallback);
+    }
+
     let cancelled = false;
 
     async function load() {
       const res = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`);
       const data = await res.json();
-      if (!cancelled && !data.error) {
-        setPreview(data);
-      }
+      if (cancelled || data.error) return;
+
+      const merged = withYoutubeThumbnail(data as LinkPreviewData, url);
+      writeLinkPreviewCache(url, merged);
+      setPreview(merged);
     }
 
     void load();
