@@ -1,4 +1,4 @@
-export type FriendshipStatus = "pending" | "accepted" | "blocked";
+export type FriendshipStatus = "pending" | "accepted" | "declined";
 
 export type MessageType = "text" | "image";
 
