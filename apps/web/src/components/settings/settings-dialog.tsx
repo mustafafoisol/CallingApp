@@ -6,6 +6,7 @@ import { Camera, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ChatAvatar } from "@/components/chat/avatar";
 import { BlockedUsersPanel } from "@/components/friends/blocked-users-panel";
+import { NotificationSettingsSection } from "@/components/settings/notification-settings-section";
 import { AVATAR_ACCEPT } from "@/lib/avatar-upload";
 import {
   compressImageForAvatar,
@@ -290,6 +291,8 @@ export function SettingsDialog({
               This is how people find and mention you.
             </p>
           </div>
+
+          <NotificationSettingsSection />
 
           <div className="px-6 py-4">
             <BlockedUsersPanel embedded />

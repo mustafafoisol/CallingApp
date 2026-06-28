@@ -40,7 +40,7 @@ Users miss new messages unless they are already inside that chat.
 
 - Service worker / Web Push / VAPID / `push_subscriptions` table → [notifications.md](./notifications.md)
 - Friend-request notifications
-- Sound / vibration
+- Vibration
 - Per-device notification settings UI (full toggle in [notifications.md](./notifications.md); may use `localStorage` for browser toasts on/off here)
 - Notifications when app is fully closed
 
@@ -73,7 +73,8 @@ See full architecture in git history of this doc; key files:
 - [x] Home preview and sort order update live when a new message arrives
 - [x] No badge/toast/title change while user is viewing that conversation
 - [x] Opening a chat clears unread for that conversation (UI + DB)
-- [ ] With tab hidden and permission granted, browser toast appears for messages in non-active chats
+- [x] With tab hidden and permission granted, browser toast appears for messages in non-active chats
+- [x] Message sound plays for incoming messages in non-active chats (settings toggle in Settings)
 - [x] `document.title` shows total unread count when > 0
 - [x] Global channel unsubscribes on logout
 
