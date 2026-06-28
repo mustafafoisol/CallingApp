@@ -1,16 +1,17 @@
+"use client";
+
 import Link from "next/link";
 import { Search, Settings } from "lucide-react";
 import { ContactRow } from "@/components/contacts/contact-row";
 import { SidebarChrome } from "@/components/messages/sidebar-chrome";
-import type { Contact } from "@/lib/contacts/load-contacts";
+import { useContacts } from "@/contexts/contacts-context";
 
 export function ContactsSidebar({
-  contacts,
   activeConversationId,
 }: {
-  contacts: Contact[];
   activeConversationId?: string | null;
 }) {
+  const contacts = useContacts();
   const addFriendHref = activeConversationId
     ? `/chat/${activeConversationId}?addFriend=1`
     : "/home?addFriend=1";
@@ -53,6 +54,7 @@ export function ContactsSidebar({
               imageUrl={contact.friend.avatar_url}
               preview={contact.preview}
               lastMessageAt={contact.lastMessageAt}
+              unreadCount={contact.unreadCount}
               active={contact.conversationId === activeConversationId}
             />
           ))
