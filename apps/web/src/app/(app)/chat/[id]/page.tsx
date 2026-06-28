@@ -45,7 +45,9 @@ export default async function ChatPage({
         .single(),
       supabase
         .from("messages")
-        .select("id, sender_id, body, created_at, removed_at")
+        .select(
+          "id, sender_id, body, type, attachment_url, created_at, removed_at",
+        )
         .eq("conversation_id", id)
         .order("created_at", { ascending: false })
         .limit(50),
