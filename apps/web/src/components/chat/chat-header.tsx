@@ -1,13 +1,18 @@
 import Link from "next/link";
-import { ChevronLeft, MoreHorizontal, Search } from "lucide-react";
+import { ChevronLeft, Search } from "lucide-react";
 import { formatLastMessageLabel } from "@/lib/chat/format-time";
+import { FriendActionsMenu } from "@/components/friends/friend-actions-menu";
 import { ChatAvatar } from "./avatar";
 
 export function ChatHeader({
+  friendId,
+  friendshipId,
   friendName,
   lastMessageAt,
   variant = "classic",
 }: {
+  friendId: string;
+  friendshipId?: string | null;
   friendName: string;
   lastMessageAt?: string | null;
   variant?: "classic" | "focused";
@@ -67,22 +72,20 @@ export function ChatHeader({
           >
             <Search className="h-[17px] w-[17px]" />
           </button>
-          <button
-            type="button"
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-muted)]"
-            aria-label="More options"
-          >
-            <MoreHorizontal className="h-[18px] w-[18px]" />
-          </button>
+          <FriendActionsMenu
+            friendId={friendId}
+            friendshipId={friendshipId}
+            friendName={friendName}
+            variant="classic"
+          />
         </div>
       ) : (
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-muted)]"
-          aria-label="More options"
-        >
-          <MoreHorizontal className="h-[18px] w-[18px]" />
-        </button>
+        <FriendActionsMenu
+          friendId={friendId}
+          friendshipId={friendshipId}
+          friendName={friendName}
+          variant="focused"
+        />
       )}
     </header>
   );
