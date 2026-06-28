@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dayKey, formatDayLabel } from "@/lib/chat/format-time";
 import {
@@ -22,12 +22,15 @@ import {
   type ChatMessage,
 } from "@/lib/chat/optimistic";
 import { uploadChatImage } from "@/lib/chat/upload-image";
+import { ChatAvatar } from "@/components/chat/avatar";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ComposeBar } from "@/components/chat/compose-bar";
 import { MessageActionsMenu } from "@/components/chat/message-actions-menu";
+import { LinkPreviewDialog } from "@/components/chat/link-preview-dialog";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { hideMessage } from "@/lib/chat/hide-message";
 import { removeMessage } from "@/lib/chat/remove-message";
+import { cn } from "@/lib/utils";
 
 export function ChatView({
   conversationId,
@@ -63,6 +66,7 @@ export function ChatView({
   const [loadOlderError, setLoadOlderError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [sendingImage, setSendingImage] = useState(false);
+  const [linkPreviewUrl, setLinkPreviewUrl] = useState<string | null>(null);
   const hiddenMessageIdsRef = useRef(new Set(initialHiddenMessageIds));
   const pendingImageFilesRef = useRef(new Map<string, File>());
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -84,7 +88,16 @@ export function ChatView({
 
   const applyMessageUpdate = useCallback((row: MessageRow) => {
     setMessages((prev) =>
-      prev.map((m) => (m.id === row.id ? { ...m, ...row, status: "confirmed" } : m)),
+      prev.map((m) =>
+        m.id === row.id
+          ? {
+              ...m,
+              ...row,
+              body: row.removed_at ? "" : row.body,
+              status: "confirmed",
+            }
+          : m,
+      ),
     );
   }, []);
 
@@ -456,29 +469,54 @@ export function ChatView({
           lastDay = dk;
           const mine = message.sender_id === currentUserId;
 
+          const isImageMessage =
+            message.type === "image" && !message.removed_at;
+          const showActionsMenu =
+            !message.removed_at && message.status === "confirmed";
+          const actionSlot = showActionsMenu ? (
+            <MessageActionsMenu
+              isOwn={mine}
+              onDelete={() => void handleDeleteMessage(message)}
+            />
+          ) : message.removed_at ? (
+            <div className="h-8 w-8 shrink-0" aria-hidden />
+          ) : null;
+
           return (
-            <div key={message.id} className="flex flex-col gap-4">
+            <Fragment key={message.id}>
               {showDay && (
-                <div className="flex justify-center">
+                <div className="flex w-full justify-center">
                   <span className="rounded-full bg-[#F1E9E3] px-3.5 py-1.5 text-xs font-medium text-[#A8998F]">
                     {formatDayLabel(message.created_at)}
                   </span>
                 </div>
               )}
               <div
-                className={`group flex w-full items-end gap-1 ${mine ? "justify-end" : "justify-start"}`}
+                className={cn(
+                  "group flex shrink-0 items-end gap-1",
+                  isImageMessage
+                    ? "max-w-[min(520px,85%)]"
+                    : "max-w-[74%]",
+                  mine ? "self-end" : "self-start",
+                )}
               >
+                {!mine &&
+                  (message.removed_at ? (
+                    <div className="h-[30px] w-[30px] shrink-0" aria-hidden />
+                  ) : (
+                    <ChatAvatar name={friendName} size="sm" />
+                  ))}
                 <MessageBubble
                   body={message.body}
                   mine={mine}
                   createdAt={message.created_at}
                   status={message.status}
-                  senderName={friendName}
                   variant="classic"
                   removed={!!message.removed_at}
                   imageUrl={
                     message.type === "image" ? message.attachment_url : undefined
                   }
+                  onLinkOpen={setLinkPreviewUrl}
                   onRetry={
                     message.status === "failed" && message.clientId
                       ? () =>
@@ -493,14 +531,9 @@ export function ChatView({
                       : undefined
                   }
                 />
-                {!message.removed_at && message.status === "confirmed" && (
-                  <MessageActionsMenu
-                    isOwn={mine}
-                    onDelete={() => void handleDeleteMessage(message)}
-                  />
-                )}
+                {actionSlot}
               </div>
-            </div>
+            </Fragment>
           );
         })}
         <div ref={bottomRef} />
@@ -526,6 +559,12 @@ export function ChatView({
         sending={sendingImage}
         disabled={!canMessage}
         placeholder={`Message ${friendName.split(" ")[0]}…`}
+      />
+
+      <LinkPreviewDialog
+        open={!!linkPreviewUrl}
+        url={linkPreviewUrl}
+        onClose={() => setLinkPreviewUrl(null)}
       />
     </div>
   );

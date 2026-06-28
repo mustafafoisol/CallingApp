@@ -45,6 +45,8 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 
 **Image uploads:** Client compresses picks to ≤1 MB (max 1920px edge) via `browser-image-compression`, then uploads to `chat-media/{conversationId}/{uuid}.ext`. Home preview shows `[Image]`.
 
+**Link previews:** Text messages containing `http://` or `https://` URLs render a preview card (OG metadata via `/api/link-preview`). Tapping the card opens an in-app browser dialog with iframe embed (YouTube URLs use `/embed/`).
+
 ## File map
 
 | File | Role |
@@ -59,6 +61,11 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 | `apps/web/src/lib/chat/optimistic.ts` | Pending/confirmed message state helpers |
 | `apps/web/src/lib/chat/compress-image.ts` | Client-side downscale/compress to ≤1 MB |
 | `apps/web/src/lib/chat/upload-image.ts` | Upload compressed blob to `chat-media` |
+| `apps/web/src/components/chat/link-preview-card.tsx` | Rich link preview card in message thread |
+| `apps/web/src/components/chat/link-preview-dialog.tsx` | In-app browser dialog (iframe) |
+| `apps/web/src/lib/chat/detect-links.ts` | Extract URLs from message body |
+| `apps/web/src/lib/chat/link-preview.ts` | OG parse helpers, embed URL, SSRF checks |
+| `apps/web/src/app/api/link-preview/route.ts` | Server-side OG metadata fetch |
 | `apps/web/src/components/chat/compose-bar.tsx` | Compose bar with emoji picker + image picker |
 | `apps/web/src/components/chat/emoji-picker-popover.tsx` | Emoji picker popover |
 | `packages/core/src/types.ts` | `Message`, `MessageType` interfaces |

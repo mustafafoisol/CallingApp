@@ -1,7 +1,8 @@
-import { ChatAvatar } from "@/components/chat/avatar";
 import { formatMessageTime } from "@/lib/chat/format-time";
+import { extractUrls } from "@/lib/chat/detect-links";
 import { REMOVED_MESSAGE_LABEL } from "@/lib/chat/messages";
 import type { MessageStatus } from "@/lib/chat/optimistic";
+import { LinkPreviewCard } from "./link-preview-card";
 
 export function MessageBubble({
   body,
@@ -9,28 +10,31 @@ export function MessageBubble({
   createdAt,
   status = "confirmed",
   onRetry,
-  senderName,
   variant = "classic",
   removed,
   imageUrl,
+  onLinkOpen,
 }: {
   body: string;
   mine: boolean;
   createdAt: string;
   status?: MessageStatus;
   onRetry?: () => void;
-  senderName?: string;
   variant?: "classic" | "focused";
   removed?: boolean;
   imageUrl?: string | null;
+  onLinkOpen?: (url: string) => void;
 }) {
   const pending = status === "pending";
   const failed = status === "failed";
   const isClassic = variant === "classic";
   const displayBody = removed ? REMOVED_MESSAGE_LABEL : body;
   const isImage = !removed && !!imageUrl;
-  const bubbleMaxWidth = isImage ? "max-w-[min(520px,85%)]" : "max-w-[74%]";
-  const bubbleMaxWidthFallback = isImage ? "max-w-[min(520px,85%)]" : "max-w-[78%]";
+  const links = !removed && !isImage ? extractUrls(body) : [];
+
+  const removedBubbleClass = mine
+    ? `border border-[#EDE5DF] bg-[var(--chat-hover)] text-[var(--chat-muted)] italic ${isClassic ? "rounded-[18px_18px_6px_18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_7px_20px] px-[17px] py-[13px] text-[15.5px]"}`
+    : `border border-[#EDE5DF] bg-[var(--chat-hover)] text-[var(--chat-muted)] italic ${isClassic ? "rounded-[18px_18px_18px_6px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_20px_7px] px-[17px] py-[13px] text-[15.5px]"}`;
 
   const bubble = isImage ? (
     <div
@@ -47,7 +51,7 @@ export function MessageBubble({
     <div
       className={
         removed
-          ? `border border-[#EDE5DF] bg-[var(--chat-hover)] text-[var(--chat-muted)] italic ${isClassic ? "rounded-[18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px] px-[17px] py-[13px] text-[15.5px]"}`
+          ? removedBubbleClass
           : mine
             ? `bg-[var(--chat-coral)] text-white ${isClassic ? "rounded-[18px_18px_6px_18px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_7px_20px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
             : `border border-[#EDE5DF] bg-[var(--chat-surface)] text-[var(--chat-text)] ${isClassic ? "rounded-[18px_18px_18px_6px] px-[15px] py-[11px] text-[14.5px]" : "rounded-[20px_20px_20px_7px] px-[17px] py-[13px] text-[15.5px]"} leading-relaxed whitespace-pre-wrap break-words ${pending ? "opacity-70" : ""} ${failed ? "opacity-60" : ""}`
@@ -57,56 +61,38 @@ export function MessageBubble({
     </div>
   );
 
-  const meta = (
-    <div className="flex items-center gap-2 px-1.5">
-      <span className="text-[11.5px] text-[#B0A49B]">
-        {pending
-          ? "Sending…"
-          : failed
-            ? "Failed to send"
-            : formatMessageTime(createdAt)}
-      </span>
-      {failed && onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="text-[11.5px] font-medium text-[var(--chat-coral)] hover:underline"
-        >
-          Retry
-        </button>
-      )}
-    </div>
-  );
-
-  if (mine) {
-    return (
-      <div
-        className={`flex ${bubbleMaxWidth} flex-col items-end gap-1 self-end`}
-      >
-        {bubble}
-        {!removed && meta}
-      </div>
-    );
-  }
-
-  if (isClassic && senderName && !removed) {
-    return (
-      <div className={`flex ${bubbleMaxWidth} items-end gap-2.5 self-start`}>
-        <ChatAvatar name={senderName} size="sm" />
-        <div className="min-w-0 flex flex-1 flex-col gap-1">
-          {bubble}
-          {meta}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
-      className={`flex ${bubbleMaxWidthFallback} flex-col gap-1 ${mine ? "items-end self-end" : "self-start"}`}
+      className={`flex min-w-0 flex-col gap-2 ${mine ? "items-end" : "items-start"}`}
     >
       {bubble}
-      {!removed && meta}
+      {onLinkOpen &&
+        links.map((url) => (
+          <LinkPreviewCard
+            key={url}
+            url={url}
+            mine={mine}
+            onOpen={onLinkOpen}
+          />
+        ))}
+      <div className="flex items-center gap-2 px-1.5">
+        <span className="text-[11.5px] text-[#B0A49B]">
+          {pending
+            ? "Sending…"
+            : failed
+              ? "Failed to send"
+              : formatMessageTime(createdAt)}
+        </span>
+        {failed && onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="text-[11.5px] font-medium text-[var(--chat-coral)] hover:underline"
+          >
+            Retry
+          </button>
+        )}
+      </div>
     </div>
   );
 }
