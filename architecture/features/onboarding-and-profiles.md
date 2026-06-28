@@ -23,7 +23,7 @@ flowchart LR
 | `display_name` | Onboarding | Yes (settings) | 2–32 characters |
 | `public_id` | Onboarding | No (currently) | 8-char alphanumeric, unique |
 | `avatar_url` | — | — | Column exists; no UI yet |
-| `last_seen_at` | — | — | Column exists; **intentionally unused** — [disable-presence.md](../plans/phase2/disable-presence.md) |
+| `last_seen_at` | — | — | Column exists; not updated yet |
 | `created_at` | Signup | No | Auto |
 
 ## Public ID generation

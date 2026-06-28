@@ -37,7 +37,7 @@ flowchart LR
 - [ ] Messages send only with **accepted** friendship
 - [ ] User can upload profile picture ≤ 100 KB; larger files rejected with clear message
 - [ ] Avatars display on contacts, chat, settings, lookup
-- [x] **No** online / active / last-seen UI or `last_seen_at` updates
+- [ ] **No** online / active / last-seen UI or `last_seen_at` updates
 
 ## Phase 2.5 — Group messaging (after Phase 2)
 
