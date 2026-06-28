@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { MessagesShell } from "@/components/messages/messages-shell";
-import { loadContacts } from "@/lib/contacts/load-contacts";
 import { loadHiddenMessageIds } from "@/lib/chat/message-hides";
+import { getAuthUser } from "@/lib/supabase/get-user";
 import { createClient } from "@/lib/supabase/server";
 import { ChatView } from "./chat-view";
 
@@ -11,12 +10,11 @@ export default async function ChatPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   if (!user) redirect("/login");
+
+  const supabase = await createClient();
 
   const { data: conversation } = await supabase
     .from("conversations")
@@ -36,7 +34,7 @@ export default async function ChatPage({
       ? conversation.user_b_id
       : conversation.user_a_id;
 
-  const [{ data: friend }, { data: recentMessages }, contacts, hiddenIds] =
+  const [{ data: friend }, { data: recentMessages }, hiddenIds] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -51,7 +49,6 @@ export default async function ChatPage({
         .eq("conversation_id", id)
         .order("created_at", { ascending: false })
         .limit(50),
-      loadContacts(supabase, user.id),
       loadHiddenMessageIds(supabase, user.id, id),
     ]);
 
@@ -61,15 +58,13 @@ export default async function ChatPage({
     .reverse();
 
   return (
-    <MessagesShell contacts={contacts} activeConversationId={id}>
-      <ChatView
-        conversationId={id}
-        currentUserId={user.id}
-        friendId={friendId}
-        friendName={friend?.display_name ?? "Friend"}
-        initialMessages={messages}
-        initialHiddenMessageIds={[...hiddenIds]}
-      />
-    </MessagesShell>
+    <ChatView
+      conversationId={id}
+      currentUserId={user.id}
+      friendId={friendId}
+      friendName={friend?.display_name ?? "Friend"}
+      initialMessages={messages}
+      initialHiddenMessageIds={[...hiddenIds]}
+    />
   );
 }

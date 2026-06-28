@@ -1,6 +1,8 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canonicalizeParticipants } from "@calling-app/core";
 import { IMAGE_MESSAGE_PREVIEW, REMOVED_MESSAGE_LABEL } from "@/lib/chat/messages";
+import { createClient } from "@/lib/supabase/server";
 
 export interface FriendProfile {
   id: string;
@@ -25,7 +27,27 @@ interface FriendshipRow {
   addressee: FriendProfile;
 }
 
-export async function loadContacts(
+interface ConversationRow {
+  id: string;
+  user_a_id: string;
+  user_b_id: string;
+  last_message_at: string | null;
+}
+
+interface PreviewRow {
+  conversation_id: string;
+  body: string;
+  type: string;
+  removed_at: string | null;
+}
+
+function previewText(msg: PreviewRow): string {
+  if (msg.removed_at) return REMOVED_MESSAGE_LABEL;
+  if (msg.type === "image") return IMAGE_MESSAGE_PREVIEW;
+  return msg.body;
+}
+
+async function loadContactsImpl(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<Contact[]> {
@@ -38,47 +60,52 @@ export async function loadContacts(
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
 
   const rows = (friendships ?? []) as unknown as FriendshipRow[];
+  if (rows.length === 0) return [];
 
-  const contacts = await Promise.all(
-    rows.map(async (friendship) => {
-      const friend =
-        friendship.requester_id === userId
-          ? friendship.addressee
-          : friendship.requester;
+  const { data: conversations } = await supabase
+    .from("conversations")
+    .select("id, user_a_id, user_b_id, last_message_at")
+    .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`);
 
-      const pair = canonicalizeParticipants(userId, friend.id);
-      const { data: conversation } = await supabase
-        .from("conversations")
-        .select("id, last_message_at")
-        .eq("user_a_id", pair.userAId)
-        .eq("user_b_id", pair.userBId)
-        .maybeSingle();
+  const conversationByPair = new Map<string, ConversationRow>();
+  for (const conversation of conversations ?? []) {
+    const key = `${conversation.user_a_id}:${conversation.user_b_id}`;
+    conversationByPair.set(key, conversation);
+  }
 
-      let preview: string | null = null;
-      if (conversation?.id) {
-        const { data: lastMsg } = await supabase
-          .from("messages")
-          .select("body, type, removed_at")
-          .eq("conversation_id", conversation.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        preview = lastMsg?.removed_at
-          ? REMOVED_MESSAGE_LABEL
-          : lastMsg?.type === "image"
-            ? IMAGE_MESSAGE_PREVIEW
-            : (lastMsg?.body ?? null);
-      }
+  const conversationIds = (conversations ?? []).map((c) => c.id);
+  const previewByConversation = new Map<string, string>();
 
-      return {
-        friendshipId: friendship.id,
-        friend,
-        conversationId: conversation?.id ?? null,
-        lastMessageAt: conversation?.last_message_at ?? null,
-        preview,
-      };
-    }),
-  );
+  if (conversationIds.length > 0) {
+    const { data: previews } = await supabase.rpc("latest_message_previews", {
+      conversation_ids: conversationIds,
+    });
+
+    for (const row of (previews ?? []) as PreviewRow[]) {
+      previewByConversation.set(row.conversation_id, previewText(row));
+    }
+  }
+
+  const contacts = rows.map((friendship) => {
+    const friend =
+      friendship.requester_id === userId
+        ? friendship.addressee
+        : friendship.requester;
+
+    const pair = canonicalizeParticipants(userId, friend.id);
+    const pairKey = `${pair.userAId}:${pair.userBId}`;
+    const conversation = conversationByPair.get(pairKey);
+
+    return {
+      friendshipId: friendship.id,
+      friend,
+      conversationId: conversation?.id ?? null,
+      lastMessageAt: conversation?.last_message_at ?? null,
+      preview: conversation?.id
+        ? (previewByConversation.get(conversation.id) ?? null)
+        : null,
+    };
+  });
 
   contacts.sort((a, b) => {
     const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
@@ -88,3 +115,15 @@ export async function loadContacts(
 
   return contacts;
 }
+
+export async function loadContacts(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<Contact[]> {
+  return loadContactsImpl(supabase, userId);
+}
+
+export const loadContactsForUser = cache(async (userId: string) => {
+  const supabase = await createClient();
+  return loadContactsImpl(supabase, userId);
+});
