@@ -23,8 +23,9 @@ flowchart LR
 
 Each contact card shows:
 - Friend `display_name`
-- Friend `public_id`
-- Message icon
+- Friend `avatar_url` (when set)
+- Last message preview and time
+- Unread badge when `unreadCount > 0` (bold name + coral pill)
 
 ## File map
 
@@ -33,6 +34,8 @@ Each contact card shows:
 | `apps/web/src/app/(app)/home/page.tsx` | Server component: load contacts, render MessagesShell |
 | `apps/web/src/lib/contacts/load-contacts.ts` | Shared contact query + sort |
 | `apps/web/src/components/messages/contacts-sidebar.tsx` | Sidebar UI (also shown on `/chat/[id]`) |
+| `apps/web/src/contexts/contacts-context.tsx` | Live unread/preview updates via global Realtime |
+| `apps/web/src/lib/contacts/mark-conversation-read.ts` | Upsert `conversation_reads` on chat open |
 | `packages/core/src/conversation.ts` | `canonicalizeParticipants()` for conversation lookup |
 
 ## Data loading (server-side)
@@ -42,8 +45,9 @@ Each contact card shows:
 3. For each friendship, resolve the "friend" profile (the other user).
 4. Call `canonicalizeParticipants(user.id, friend.id)` to get ordered pair.
 5. Query `conversations` by `(user_a_id, user_b_id)`.
-6. Build contact object: `{ friendshipId, friend, conversationId, lastMessageAt }`.
-7. Sort contacts by `lastMessageAt` descending (nulls last).
+6. Batch-fetch unread counts via `conversation_unread_counts` RPC.
+7. Build contact object: `{ friendshipId, friend, conversationId, lastMessageAt, preview, unreadCount }`.
+8. Sort contacts by `lastMessageAt` descending (nulls last).
 
 ## Sorting logic
 
@@ -74,7 +78,7 @@ Then map in memory by canonical pair.
 | Future need | Approach |
 |-------------|----------|
 | Last message preview | Join latest message per conversation |
-| Unread badge | Phase 3 — [unread-and-read-state.md](../plans/phase3/unread-and-read-state.md) |
+| Unread badge | Shipped — [unread-and-read-state.md](../plans/phase3/unread-and-read-state.md) |
 | Profile avatars | [profile-pictures.md](../plans/phase2/profile-pictures.md) |
 | Online indicator | **Off** — [disable-presence.md](../plans/phase2/disable-presence.md) |
 | Search contacts | Client-side filter on display_name / public_id |

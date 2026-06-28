@@ -134,7 +134,7 @@ Trigger `handle_new_message()` updates `conversations.last_message_at` on every 
 | Limitation | Plan |
 |------------|------|
 | No typing indicators | [typing-indicators.md](../plans/phase3/typing-indicators.md) (Phase 3) |
-| No unread badges / read state | [unread-and-read-state.md](../plans/phase3/unread-and-read-state.md) (Phase 3) |
+| Unread badges / read state | [unread-and-read-state.md](../plans/phase3/unread-and-read-state.md) — `conversation_reads` + sidebar badges |
 | No attachments | [message-enhancements.md](../plans/phase1/message-enhancements.md) |
 | No edit / forward | [message-edit.md](../plans/phase3/message-edit.md), [message-forward.md](../plans/phase3/message-forward.md) |
 | Realtime-only delivery (fixed) | Sender now appends from INSERT response — see [troubleshooting.md](../feature-tests/chat/troubleshooting.md) |

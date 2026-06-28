@@ -69,13 +69,13 @@ See full architecture in git history of this doc; key files:
 
 ## Acceptance criteria
 
-- [ ] Message to another conversation increments unread badge on home without refresh
-- [ ] Home preview and sort order update live when a new message arrives
-- [ ] No badge/toast/title change while user is viewing that conversation
-- [ ] Opening a chat clears unread for that conversation (UI + DB)
+- [x] Message to another conversation increments unread badge on home without refresh
+- [x] Home preview and sort order update live when a new message arrives
+- [x] No badge/toast/title change while user is viewing that conversation
+- [x] Opening a chat clears unread for that conversation (UI + DB)
 - [ ] With tab hidden and permission granted, browser toast appears for messages in non-active chats
-- [ ] `document.title` shows total unread count when > 0
-- [ ] Global channel unsubscribes on logout
+- [x] `document.title` shows total unread count when > 0
+- [x] Global channel unsubscribes on logout
 
 ## Dependencies
 

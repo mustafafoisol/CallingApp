@@ -89,10 +89,10 @@ On new message INSERT while not in chat → increment local unread state on home
 
 ## Acceptance criteria
 
-- [ ] Opening chat clears unread for that conversation
-- [ ] Home shows correct unread counts
-- [ ] Counts update when receiving messages in background tab
-- [ ] RLS prevents reading/writing other users' read state
+- [x] Opening chat clears unread for that conversation
+- [x] Home shows correct unread counts
+- [x] Counts update when receiving messages in background tab
+- [x] RLS prevents reading/writing other users' read state
 
 ## Dependencies
 

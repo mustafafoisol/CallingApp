@@ -1,13 +1,10 @@
 import { cn } from "@/lib/utils";
 import { ContactsSidebar } from "./contacts-sidebar";
-import type { Contact } from "@/lib/contacts/load-contacts";
 
 export function MessagesShell({
-  contacts,
   activeConversationId,
   children,
 }: {
-  contacts: Contact[];
   activeConversationId?: string | null;
   children: React.ReactNode;
 }) {
@@ -22,10 +19,7 @@ export function MessagesShell({
             chatOpen ? "hidden lg:flex" : "flex",
           )}
         >
-          <ContactsSidebar
-            contacts={contacts}
-            activeConversationId={activeConversationId}
-          />
+          <ContactsSidebar activeConversationId={activeConversationId} />
         </aside>
 
         <main

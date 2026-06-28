@@ -3,16 +3,19 @@
 import { usePathname } from "next/navigation";
 import { MessagesShell } from "@/components/messages/messages-shell";
 import { SettingsDialogHost } from "@/components/settings/settings-dialog-host";
+import { ContactsProvider } from "@/contexts/contacts-context";
 import type { Contact } from "@/lib/contacts/load-contacts";
 
 export function MessagesShellLayout({
   contacts,
+  currentUserId,
   displayName,
   publicId,
   avatarUrl,
   children,
 }: {
   contacts: Contact[];
+  currentUserId: string;
   displayName: string;
   publicId: string;
   avatarUrl: string | null;
@@ -24,8 +27,12 @@ export function MessagesShellLayout({
     : null;
 
   return (
-    <>
-      <MessagesShell contacts={contacts} activeConversationId={activeConversationId}>
+    <ContactsProvider
+      initialContacts={contacts}
+      currentUserId={currentUserId}
+      activeConversationId={activeConversationId}
+    >
+      <MessagesShell activeConversationId={activeConversationId}>
         {children}
       </MessagesShell>
       <SettingsDialogHost
@@ -33,6 +40,6 @@ export function MessagesShellLayout({
         publicId={publicId}
         avatarUrl={avatarUrl}
       />
-    </>
+    </ContactsProvider>
   );
 }

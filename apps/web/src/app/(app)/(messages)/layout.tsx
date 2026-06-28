@@ -30,6 +30,7 @@ export default async function MessagesLayout({
   return (
     <MessagesShellLayout
       contacts={contacts}
+      currentUserId={user.id}
       displayName={profile?.display_name ?? ""}
       publicId={profile?.public_id ?? ""}
       avatarUrl={profile?.avatar_url ?? null}
