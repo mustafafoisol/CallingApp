@@ -144,6 +144,22 @@ Open http://localhost:3000
 
 ---
 
+### HP-8: Image attachment (P0)
+
+**Goal:** Large photo compresses to ≤1 MB, uploads, and displays inline for both users.
+
+| Step | Who | Action | Expected |
+|------|-----|--------|----------|
+| 1 | Alice | Tap image icon → pick a 3–5 MB JPEG/PNG | Optimistic preview bubble appears |
+| 2 | Alice | Wait for send | Inline image replaces preview; no error |
+| 3 | Bob | Observe thread (chat open) | Image appears via realtime |
+| 4 | Bob | Home | Alice row preview shows `[Image]` |
+| 5 | Alice | Pick a non-image file (rename `.txt` to `.jpg` optional) | Clear error; nothing sent |
+
+**Pass:** Images display inline; home preview correct; invalid type rejected.
+
+---
+
 ## Edge case tests
 
 ### EC-1: Empty and whitespace input (P0) — maps to E-01, E-02
@@ -291,6 +307,7 @@ Environment: localhost / staging
 | HP-5  |                          |       |
 | HP-6  |                          |       |
 | HP-7  |                          |       |
+| HP-8  |                          |       |
 | EC-1  |                          |       |
 | EC-2  |                          |       |
 | EC-3  |                          |       |
