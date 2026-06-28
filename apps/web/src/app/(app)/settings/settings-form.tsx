@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { BlockedUsersPanel } from "@/components/friends/blocked-users-panel";
 import { createClient } from "@/lib/supabase/client";
 
 export function SettingsForm({
@@ -68,6 +69,7 @@ export function SettingsForm({
         </Button>
         {message && <p className="text-sm text-muted">{message}</p>}
       </Card>
+      <BlockedUsersPanel />
       <Button variant="danger" className="w-full" onClick={logout}>
         Log out
       </Button>
