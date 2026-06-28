@@ -13,7 +13,7 @@ export function ChatAvatar({
 }: {
   name: string;
   imageUrl?: string | null;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
 }) {
   const [imgError, setImgError] = useState(false);
   const sizeClass =
@@ -21,7 +21,9 @@ export function ChatAvatar({
       ? "h-[30px] w-[30px] text-xs"
       : size === "lg"
         ? "h-12 w-12 text-lg"
-        : "h-11 w-11 text-base";
+        : size === "xl"
+          ? "h-[76px] w-[76px] text-[26px]"
+          : "h-11 w-11 text-base";
 
   if (imageUrl && !imgError) {
     return (
