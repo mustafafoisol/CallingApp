@@ -30,6 +30,7 @@ import { LinkPreviewDialog } from "@/components/chat/link-preview-dialog";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { hideMessage } from "@/lib/chat/hide-message";
 import { removeMessage } from "@/lib/chat/remove-message";
+import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
 import { cn } from "@/lib/utils";
 
 export function ChatView({
@@ -76,14 +77,26 @@ export function ChatView({
     null,
   );
 
+  const markRead = useCallback(() => {
+    const supabase = createClient();
+    void markConversationRead(supabase, conversationId, currentUserId).catch(
+      (error) => {
+        console.error("[chat] mark read failed", error);
+      },
+    );
+  }, [conversationId, currentUserId]);
+
   const reconcileMessage = useCallback(
     (row: MessageRow) => {
       scrollToBottomRef.current = true;
       setMessages((prev) =>
         reconcileIncomingMessage(prev, row, currentUserId),
       );
+      if (row.sender_id !== currentUserId) {
+        markRead();
+      }
     },
-    [currentUserId],
+    [currentUserId, markRead],
   );
 
   const applyMessageUpdate = useCallback((row: MessageRow) => {
@@ -108,6 +121,10 @@ export function ChatView({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
   }, []);
+
+  useEffect(() => {
+    markRead();
+  }, [markRead]);
 
   useEffect(() => {
     if (pendingScrollRestore.current && scrollContainerRef.current) {
