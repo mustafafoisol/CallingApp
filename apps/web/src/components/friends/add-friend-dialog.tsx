@@ -11,6 +11,7 @@ interface LookupProfile {
   id: string;
   public_id: string;
   display_name: string | null;
+  avatar_url: string | null;
 }
 
 export function AddFriendDialog({
@@ -226,6 +227,7 @@ export function AddFriendDialog({
             <div className="flex items-center gap-3 rounded-[13px] border border-[#F1E9E3] bg-[#FBF6F2] px-3.5 py-3">
               <ChatAvatar
                 name={profile.display_name ?? profile.public_id}
+                imageUrl={profile.avatar_url}
                 size="md"
               />
               <div className="min-w-0 flex-1">

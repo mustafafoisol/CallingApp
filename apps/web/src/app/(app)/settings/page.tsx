@@ -13,7 +13,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, public_id")
+    .select("display_name, public_id, avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -22,6 +22,7 @@ export default async function SettingsPage() {
       <SettingsForm
         displayName={profile?.display_name ?? ""}
         publicId={profile?.public_id ?? ""}
+        avatarUrl={profile?.avatar_url ?? null}
       />
     </AppShell>
   );

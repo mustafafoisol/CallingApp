@@ -38,7 +38,7 @@ export default async function ChatPage({
     await Promise.all([
       supabase
         .from("profiles")
-        .select("id, display_name, public_id")
+        .select("id, display_name, public_id, avatar_url")
         .eq("id", friendId)
         .single(),
       supabase
@@ -73,6 +73,7 @@ export default async function ChatPage({
       friendshipId={friendship?.id ?? null}
       friendName={friend?.display_name ?? "Friend"}
       canMessage={!!friendship}
+      friendAvatarUrl={friend?.avatar_url ?? null}
       initialMessages={messages}
       initialHiddenMessageIds={[...hiddenIds]}
     />

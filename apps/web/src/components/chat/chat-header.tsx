@@ -8,12 +8,14 @@ export function ChatHeader({
   friendId,
   friendshipId,
   friendName,
+  friendAvatarUrl,
   lastMessageAt,
   variant = "classic",
 }: {
   friendId: string;
   friendshipId?: string | null;
   friendName: string;
+  friendAvatarUrl?: string | null;
   lastMessageAt?: string | null;
   variant?: "classic" | "focused";
 }) {
@@ -46,7 +48,11 @@ export function ChatHeader({
             <ChevronLeft className="h-5 w-5" />
           </Link>
         )}
-        <ChatAvatar name={friendName} size={isClassic ? "md" : "lg"} />
+        <ChatAvatar
+          name={friendName}
+          imageUrl={friendAvatarUrl}
+          size={isClassic ? "md" : "lg"}
+        />
         <div className="min-w-0">
           <p
             className={`truncate font-semibold text-[var(--chat-text)] ${

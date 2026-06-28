@@ -47,6 +47,7 @@ export function ContactsSidebar({
                   : addFriendHref
               }
               name={contact.friend.display_name ?? "Friend"}
+              imageUrl={contact.friend.avatar_url}
               preview={contact.preview}
               lastMessageAt={contact.lastMessageAt}
               active={contact.conversationId === activeConversationId}

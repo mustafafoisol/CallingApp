@@ -36,6 +36,7 @@ export function ChatView({
   friendshipId,
   friendName,
   canMessage = true,
+  friendAvatarUrl,
   initialMessages,
   initialHiddenMessageIds = [],
 }: {
@@ -45,6 +46,7 @@ export function ChatView({
   friendshipId?: string | null;
   friendName: string;
   canMessage?: boolean;
+  friendAvatarUrl?: string | null;
   initialMessages: MessageRow[];
   initialHiddenMessageIds?: string[];
 }) {
@@ -409,6 +411,7 @@ export function ChatView({
         friendId={friendId}
         friendshipId={friendshipId}
         friendName={friendName}
+        friendAvatarUrl={friendAvatarUrl}
         lastMessageAt={lastMessageAt}
         variant="classic"
       />
