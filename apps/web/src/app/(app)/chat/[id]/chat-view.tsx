@@ -10,12 +10,18 @@ import {
   type MessageRow,
 } from "@/lib/chat/messages";
 import {
+  compressImageForChat,
+  ImageCompressionError,
+} from "@/lib/chat/compress-image";
+import {
   confirmPendingMessage,
+  createPendingImageMessage,
   createPendingMessage,
   markMessageFailed,
   reconcileIncomingMessage,
   type ChatMessage,
 } from "@/lib/chat/optimistic";
+import { uploadChatImage } from "@/lib/chat/upload-image";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ComposeBar } from "@/components/chat/compose-bar";
 import { MessageActionsMenu } from "@/components/chat/message-actions-menu";
@@ -49,7 +55,9 @@ export function ChatView({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [loadOlderError, setLoadOlderError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [sendingImage, setSendingImage] = useState(false);
   const hiddenMessageIdsRef = useRef(new Set(initialHiddenMessageIds));
+  const pendingImageFilesRef = useRef(new Map<string, File>());
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollToBottomRef = useRef(false);
@@ -234,7 +242,9 @@ export function ChatView({
         body: text,
         type: "text",
       })
-      .select("id, sender_id, body, created_at, removed_at")
+      .select(
+        "id, sender_id, body, type, attachment_url, created_at, removed_at",
+      )
       .single();
 
     if (error) {
@@ -268,6 +278,79 @@ export function ChatView({
   async function retryMessage(clientId: string, text: string) {
     setSendError(null);
     await sendText(text, clientId);
+  }
+
+  async function sendImage(file: File, existingClientId?: string) {
+    const clientId = existingClientId ?? crypto.randomUUID();
+    let previewUrl: string | null = null;
+
+    if (!existingClientId) {
+      previewUrl = URL.createObjectURL(file);
+      pendingImageFilesRef.current.set(clientId, file);
+      scrollToBottomRef.current = true;
+      setMessages((prev) => [
+        ...prev,
+        createPendingImageMessage(clientId, currentUserId, previewUrl!),
+      ]);
+    } else {
+      const stored = pendingImageFilesRef.current.get(clientId);
+      if (!stored) return;
+      file = stored;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.clientId === clientId ? { ...m, status: "pending" } : m,
+        ),
+      );
+    }
+
+    setSendError(null);
+    setSendingImage(true);
+
+    try {
+      const compressed = await compressImageForChat(file);
+      const supabase = createClient();
+      const attachmentUrl = await uploadChatImage(
+        supabase,
+        compressed,
+        conversationId,
+      );
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          body: "",
+          type: "image",
+          attachment_url: attachmentUrl,
+        })
+        .select(
+          "id, sender_id, body, type, attachment_url, created_at, removed_at",
+        )
+        .single();
+
+      if (error) throw error;
+
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      pendingImageFilesRef.current.delete(clientId);
+
+      if (data) {
+        scrollToBottomRef.current = true;
+        setMessages((prev) => confirmPendingMessage(prev, clientId, data));
+      }
+    } catch (err) {
+      setMessages((prev) => markMessageFailed(prev, clientId));
+      if (!existingClientId) {
+        const message =
+          err instanceof ImageCompressionError
+            ? err.message
+            : err instanceof Error
+              ? formatSendError(err.message)
+              : "Could not send image.";
+        setSendError(message);
+      }
+    } finally {
+      setSendingImage(false);
+    }
   }
 
   async function handleDeleteMessage(message: ChatMessage) {
@@ -374,9 +457,20 @@ export function ChatView({
                   senderName={friendName}
                   variant="classic"
                   removed={!!message.removed_at}
+                  imageUrl={
+                    message.type === "image" ? message.attachment_url : undefined
+                  }
                   onRetry={
                     message.status === "failed" && message.clientId
-                      ? () => void retryMessage(message.clientId!, message.body)
+                      ? () =>
+                          void (message.type === "image"
+                            ? sendImage(
+                                pendingImageFilesRef.current.get(
+                                  message.clientId!,
+                                )!,
+                                message.clientId,
+                              )
+                            : retryMessage(message.clientId!, message.body))
                       : undefined
                   }
                 />
@@ -403,6 +497,8 @@ export function ChatView({
         value={body}
         onChange={setBody}
         onSubmit={sendMessage}
+        onSendImage={(file) => void sendImage(file)}
+        sending={sendingImage}
         placeholder={`Message ${friendName.split(" ")[0]}…`}
       />
     </div>
