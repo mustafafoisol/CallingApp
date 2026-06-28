@@ -67,11 +67,11 @@ Do **not** select `last_seen_at` for contacts or chat unless a future plan expli
 
 ## Acceptance criteria
 
-- [ ] No UI shows online, active, or last-seen status anywhere
-- [ ] No application code updates `profiles.last_seen_at`
-- [ ] `ChatAvatar` has no visible online indicator
-- [ ] Contact row highlight is clearly a list-selection style, not presence
-- [ ] Phase 2 exit criteria no longer lists presence features
+- [x] No UI shows online, active, or last-seen status anywhere
+- [x] No application code updates `profiles.last_seen_at`
+- [x] `ChatAvatar` has no visible online indicator
+- [x] Contact row highlight is clearly a list-selection style, not presence
+- [x] Phase 2 exit criteria no longer lists presence features
 
 ## Dependencies
 
