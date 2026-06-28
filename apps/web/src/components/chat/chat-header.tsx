@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { ChevronLeft, MoreHorizontal, Search } from "lucide-react";
+import { formatLastMessageLabel } from "@/lib/chat/format-time";
 import { ChatAvatar } from "./avatar";
 
 export function ChatHeader({
   friendName,
+  lastMessageAt,
   variant = "classic",
 }: {
   friendName: string;
+  lastMessageAt?: string | null;
   variant?: "classic" | "focused";
 }) {
   const isClassic = variant === "classic";
@@ -38,7 +41,7 @@ export function ChatHeader({
             <ChevronLeft className="h-5 w-5" />
           </Link>
         )}
-        <ChatAvatar name={friendName} size={isClassic ? "md" : "lg"} showOnline />
+        <ChatAvatar name={friendName} size={isClassic ? "md" : "lg"} />
         <div className="min-w-0">
           <p
             className={`truncate font-semibold text-[var(--chat-text)] ${
@@ -47,7 +50,11 @@ export function ChatHeader({
           >
             {friendName}
           </p>
-          <p className="text-[12.5px] font-medium text-[#34B27B]">Active now</p>
+          {lastMessageAt && (
+            <p className="truncate text-[12.5px] font-medium text-[#A8998F]">
+              {formatLastMessageLabel(lastMessageAt)}
+            </p>
+          )}
         </div>
       </div>
 

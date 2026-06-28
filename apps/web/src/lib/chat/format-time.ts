@@ -3,6 +3,13 @@ export function formatMessageTime(iso: string): string {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+export function formatLastMessageLabel(iso: string): string {
+  const time = formatMessageTime(iso);
+  const day = formatDayLabel(iso);
+  if (day === "Today") return `Last msg at ${time}`;
+  return `Last msg at ${time} · ${day}`;
+}
+
 export function formatDayLabel(iso: string): string {
   const date = new Date(iso);
   const now = new Date();

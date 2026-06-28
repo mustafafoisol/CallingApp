@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { dayKey, formatDayLabel } from "@/lib/chat/format-time";
 import {
@@ -391,11 +391,20 @@ export function ChatView({
     }
   }
 
+  const lastMessageAt = useMemo(() => {
+    if (messages.length === 0) return null;
+    return messages[messages.length - 1].created_at;
+  }, [messages]);
+
   let lastDay: string | null = null;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--chat-bg)]">
-      <ChatHeader friendName={friendName} variant="classic" />
+      <ChatHeader
+        friendName={friendName}
+        lastMessageAt={lastMessageAt}
+        variant="classic"
+      />
 
       {realtimeStatus !== "SUBSCRIBED" && realtimeStatus !== "connecting" && (
         <p className="bg-[#FCEDE8] px-4 py-2 text-center text-xs text-[var(--chat-muted)]">
