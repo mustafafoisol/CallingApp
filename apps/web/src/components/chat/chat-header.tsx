@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, Search } from "lucide-react";
+import { ChevronLeft, Phone, Search } from "lucide-react";
 import { formatLastMessageLabel } from "@/lib/chat/format-time";
 import { FriendActionsMenu } from "@/components/friends/friend-actions-menu";
 import { ChatAvatar } from "./avatar";
@@ -11,6 +11,9 @@ export function ChatHeader({
   friendAvatarUrl,
   lastMessageAt,
   variant = "classic",
+  canCall = false,
+  callDisabled = false,
+  onStartCall,
 }: {
   friendId: string;
   friendshipId?: string | null;
@@ -18,6 +21,9 @@ export function ChatHeader({
   friendAvatarUrl?: string | null;
   lastMessageAt?: string | null;
   variant?: "classic" | "focused";
+  canCall?: boolean;
+  callDisabled?: boolean;
+  onStartCall?: () => void;
 }) {
   const isClassic = variant === "classic";
 
@@ -71,6 +77,17 @@ export function ChatHeader({
 
       {isClassic ? (
         <div className="flex items-center gap-2">
+          {canCall && (
+            <button
+              type="button"
+              onClick={onStartCall}
+              disabled={callDisabled}
+              className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-coral)] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={`Call ${friendName}`}
+            >
+              <Phone className="h-[17px] w-[17px]" />
+            </button>
+          )}
           <button
             type="button"
             className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-muted)]"

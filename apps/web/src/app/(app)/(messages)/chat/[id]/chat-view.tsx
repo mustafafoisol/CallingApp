@@ -31,6 +31,7 @@ import { MessageBubble } from "@/components/chat/message-bubble";
 import { hideMessage } from "@/lib/chat/hide-message";
 import { removeMessage } from "@/lib/chat/remove-message";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
+import { useCall } from "@/contexts/call-context";
 import { cn } from "@/lib/utils";
 
 export function ChatView({
@@ -68,6 +69,7 @@ export function ChatView({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [sendingImage, setSendingImage] = useState(false);
   const [linkPreviewUrl, setLinkPreviewUrl] = useState<string | null>(null);
+  const { startCall, uiState: callUiState } = useCall();
   const hiddenMessageIdsRef = useRef(new Set(initialHiddenMessageIds));
   const pendingImageFilesRef = useRef(new Map<string, File>());
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -444,6 +446,11 @@ export function ChatView({
         friendAvatarUrl={friendAvatarUrl}
         lastMessageAt={lastMessageAt}
         variant="classic"
+        canCall={canMessage}
+        callDisabled={callUiState !== "idle"}
+        onStartCall={() =>
+          void startCall(conversationId, friendId, friendName)
+        }
       />
 
       {realtimeStatus !== "SUBSCRIBED" && realtimeStatus !== "connecting" && (
