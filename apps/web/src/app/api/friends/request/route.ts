@@ -17,6 +17,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid target user" }, { status: 400 });
   }
 
+  const [{ data: blockedByTarget }, { data: blockedByMe }] = await Promise.all([
+    supabase.rpc("is_blocked_by", { blocker: targetUserId, blocked: user.id }),
+    supabase.rpc("is_blocked_by", { blocker: user.id, blocked: targetUserId }),
+  ]);
+
+  if (blockedByTarget) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (blockedByMe) {
+    return NextResponse.json(
+      { error: "Unblock this user first" },
+      { status: 400 },
+    );
+  }
+
   const { data: existing } = await supabase
     .from("friendships")
     .select("id, status")

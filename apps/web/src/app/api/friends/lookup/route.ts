@@ -34,6 +34,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Cannot add yourself" }, { status: 400 });
   }
 
+  const { data: isBlocked } = await supabase.rpc("is_blocked_by", {
+    blocker: profile.id,
+    blocked: user.id,
+  });
+
+  if (isBlocked) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
   const { data: existing } = await supabase
     .from("friendships")
     .select("id, status")
