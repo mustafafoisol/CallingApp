@@ -1,15 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0b1020;
-  --foreground: #f4f7ff;
-  --card: #141b2f;
-  --muted: #8b95b5;
-  --primary: #5b8cff;
+  --background: #faf7f4;
+  --foreground: #2a2420;
+  --card: #ffffff;
+  --muted: #8a7f76;
+  --primary: #f26b52;
   --primary-foreground: #ffffff;
-  --accent: #22c55e;
-  --danger: #ef4444;
-  --border: #24304d;
+  --accent: #34b27b;
+  --danger: #e74c3c;
+  --border: #efe8e2;
+
+  --chat-bg: #faf7f4;
+  --chat-surface: #ffffff;
+  --chat-sidebar: #fbf8f5;
+  --chat-text: #2a2420;
+  --chat-muted: #8a7f76;
+  --chat-coral: #f26b52;
+  --chat-border: #efe8e2;
+  --chat-hover: #f4eee9;
+  --chat-active: #fcede8;
 }
 
 @theme inline {
@@ -22,12 +32,12 @@
   --color-accent: var(--accent);
   --color-danger: var(--danger);
   --color-border: var(--border);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-jakarta);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
   min-height: 100dvh;
 }

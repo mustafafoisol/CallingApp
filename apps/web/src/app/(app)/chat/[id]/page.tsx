@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { AppShell } from "@/components/app-shell";
 import { createClient } from "@/lib/supabase/server";
 import { ChatView } from "./chat-view";
 
@@ -48,14 +47,12 @@ export default async function ChatPage({
     .limit(50);
 
   return (
-    <AppShell title={friend?.display_name ?? "Chat"}>
-      <ChatView
-        conversationId={id}
-        currentUserId={user.id}
-        friendId={friendId}
-        friendName={friend?.display_name ?? "Friend"}
-        initialMessages={messages ?? []}
-      />
-    </AppShell>
+    <ChatView
+      conversationId={id}
+      currentUserId={user.id}
+      friendId={friendId}
+      friendName={friend?.display_name ?? "Friend"}
+      initialMessages={messages ?? []}
+    />
   );
 }

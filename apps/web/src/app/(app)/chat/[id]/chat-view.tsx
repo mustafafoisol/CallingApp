@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import { dayKey, formatDayLabel } from "@/lib/chat/format-time";
+import { ChatHeader } from "@/components/chat/chat-header";
+import { ComposeBar } from "@/components/chat/compose-bar";
+import { MessageBubble } from "@/components/chat/message-bubble";
 
 interface MessageRow {
   id: string;
@@ -15,6 +17,7 @@ interface MessageRow {
 export function ChatView({
   conversationId,
   currentUserId,
+  friendName,
   initialMessages,
 }: {
   conversationId: string;
@@ -54,7 +57,6 @@ export function ChatView({
 
       if (!session) {
         setRealtimeStatus("no-session");
-        console.warn("[chat] No session — realtime subscription skipped");
         return;
       }
 
@@ -75,9 +77,7 @@ export function ChatView({
         .subscribe((status, err) => {
           if (cancelled) return;
           setRealtimeStatus(status);
-          if (status === "SUBSCRIBED") {
-            console.debug("[chat] realtime subscribed", conversationId);
-          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             console.error("[chat] realtime failed", status, err);
           }
         });
@@ -128,55 +128,63 @@ export function ChatView({
     }
   }
 
+  let lastDay: string | null = null;
+
   return (
-    <div className="flex h-[calc(100dvh-7rem)] flex-col">
+    <div className="mx-auto flex h-dvh max-w-lg flex-col bg-[var(--chat-bg)]">
+      <ChatHeader friendName={friendName} />
+
       {realtimeStatus !== "SUBSCRIBED" && realtimeStatus !== "connecting" && (
-        <p className="mb-2 text-xs text-muted">
-          Live updates unavailable ({realtimeStatus}). New messages appear after
-          you send or refresh.
+        <p className="bg-[#FCEDE8] px-4 py-2 text-center text-xs text-[var(--chat-muted)]">
+          Live updates unavailable — refresh if messages seem stale.
         </p>
       )}
 
-      <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl border border-border bg-card p-4">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
+        {messages.length === 0 && (
+          <p className="text-center text-sm text-[#A8998F]">
+            No messages yet. Say hello!
+          </p>
+        )}
         {messages.map((message) => {
+          const dk = dayKey(message.created_at);
+          const showDay = dk !== lastDay;
+          lastDay = dk;
           const mine = message.sender_id === currentUserId;
+
           return (
-            <div
-              key={message.id}
-              className={`flex ${mine ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                  mine
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-[#1a2340] text-foreground"
-                }`}
-              >
-                {message.body}
-              </div>
+            <div key={message.id} className="flex flex-col gap-4">
+              {showDay && (
+                <div className="flex justify-center">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[#A8998F]">
+                    {formatDayLabel(message.created_at)}
+                  </span>
+                </div>
+              )}
+              <MessageBubble
+                body={message.body}
+                mine={mine}
+                createdAt={message.created_at}
+              />
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={sendMessage} className="mt-3 flex gap-2">
-        <Input
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Type a message"
-          disabled={sending}
-        />
-        <Button type="submit" disabled={sending}>
-          {sending ? "..." : "Send"}
-        </Button>
-      </form>
-
       {sendError && (
-        <p className="mt-2 text-sm text-danger" role="alert">
+        <p className="px-5 pb-1 text-sm text-[var(--danger)]" role="alert">
           {sendError}
         </p>
       )}
+
+      <ComposeBar
+        value={body}
+        onChange={setBody}
+        onSubmit={sendMessage}
+        placeholder={`Message ${friendName.split(" ")[0]}…`}
+        sending={sending}
+      />
     </div>
   );
 }

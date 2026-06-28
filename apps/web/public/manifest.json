@@ -4,8 +4,8 @@
   "description": "Free 1-on-1 chat",
   "start_url": "/home",
   "display": "standalone",
-  "background_color": "#0b1020",
-  "theme_color": "#5b8cff",
+  "background_color": "#FAF7F4",
+  "theme_color": "#F26B52",
   "icons": [
     {
       "src": "/icon-192.png",

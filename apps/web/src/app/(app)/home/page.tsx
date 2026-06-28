@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MessageCircle } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { Card } from "@/components/ui/card";
+import { ContactRow } from "@/components/contacts/contact-row";
 import { createClient } from "@/lib/supabase/server";
 import { canonicalizeParticipants } from "@calling-app/core";
 
@@ -54,11 +54,24 @@ export default async function HomePage() {
         .eq("user_b_id", pair.userBId)
         .maybeSingle();
 
+      let preview: string | null = null;
+      if (conversation?.id) {
+        const { data: lastMsg } = await supabase
+          .from("messages")
+          .select("body")
+          .eq("conversation_id", conversation.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        preview = lastMsg?.body ?? null;
+      }
+
       return {
         friendshipId: friendship.id,
         friend,
         conversationId: conversation?.id ?? null,
         lastMessageAt: conversation?.last_message_at ?? null,
+        preview,
       };
     }),
   );
@@ -70,36 +83,55 @@ export default async function HomePage() {
   });
 
   return (
-    <AppShell title="Contacts">
-      {contacts.length === 0 ? (
-        <Card className="text-center text-sm text-muted">
-          <p>No contacts yet.</p>
-          <Link href="/friends/add" className="mt-2 inline-block text-primary">
-            Add a friend by user ID
+    <AppShell>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[22px] font-bold tracking-tight text-[var(--chat-text)]">
+            Messages
+          </h2>
+          <Link
+            href="/friends/add"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[var(--chat-coral)] text-white shadow-[0_2px_8px_rgba(242,107,82,0.35)]"
+            aria-label="Add friend"
+          >
+            <Plus className="h-4 w-4" />
           </Link>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {contacts.map((contact) => (
-            <Link
-              key={contact.friendshipId}
-              href={
-                contact.conversationId
-                  ? `/chat/${contact.conversationId}`
-                  : "/friends/add"
-              }
-            >
-              <Card className="flex items-center justify-between hover:bg-[#1a2340]">
-                <div>
-                  <p className="font-medium">{contact.friend.display_name}</p>
-                  <p className="text-sm text-muted">{contact.friend.public_id}</p>
-                </div>
-                <MessageCircle className="h-5 w-5 text-primary" />
-              </Card>
-            </Link>
-          ))}
         </div>
-      )}
+
+        <div className="flex items-center gap-2 rounded-[11px] bg-[#F1E9E3] px-3.5 py-2.5">
+          <Search className="h-4 w-4 shrink-0 text-[#A8998F]" />
+          <span className="text-sm text-[#A8998F]">Search conversations</span>
+        </div>
+
+        {contacts.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--chat-border)] bg-[var(--chat-surface)] p-6 text-center text-sm text-[var(--chat-muted)]">
+            <p>No contacts yet.</p>
+            <Link
+              href="/friends/add"
+              className="mt-2 inline-block font-medium text-[var(--chat-coral)]"
+            >
+              Add a friend by user ID
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {contacts.map((contact, index) => (
+              <ContactRow
+                key={contact.friendshipId}
+                href={
+                  contact.conversationId
+                    ? `/chat/${contact.conversationId}`
+                    : "/friends/add"
+                }
+                name={contact.friend.display_name ?? "Friend"}
+                preview={contact.preview}
+                lastMessageAt={contact.lastMessageAt}
+                active={index === 0 && !!contact.lastMessageAt}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </AppShell>
   );
 }
