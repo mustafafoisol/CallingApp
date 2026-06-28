@@ -8,6 +8,7 @@ export function ComposeBar({
   value,
   onChange,
   onSubmit,
+  onSendImage,
   placeholder,
   disabled,
   sending,
@@ -15,6 +16,7 @@ export function ComposeBar({
   value: string;
   onChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onSendImage?: (file: File) => void;
   placeholder: string;
   disabled?: boolean;
   sending?: boolean;
@@ -22,6 +24,7 @@ export function ComposeBar({
   const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const composeRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   function insertEmojiAtCursor(emoji: string) {
     const input = inputRef.current;
@@ -92,11 +95,23 @@ export function ComposeBar({
           rows={1}
           className="min-h-[24px] min-w-0 flex-1 resize-none bg-transparent text-[15px] leading-normal text-[var(--chat-text)] outline-none placeholder:text-[#A8998F]"
         />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file && onSendImage) onSendImage(file);
+          }}
+        />
         <button
           type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center text-[#A8998F] opacity-50"
+          className="flex h-9 w-9 shrink-0 items-center justify-center text-[#A8998F] transition-colors hover:bg-[var(--chat-hover)] disabled:opacity-50"
           aria-label="Send image"
-          disabled
+          disabled={disabled || sending || !onSendImage}
+          onClick={() => imageInputRef.current?.click()}
         >
           <ImageIcon className="h-5 w-5" aria-hidden />
         </button>
