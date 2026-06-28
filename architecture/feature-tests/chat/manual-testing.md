@@ -34,11 +34,11 @@ Open http://localhost:3000
 
 | Step | Who | Action | Expected |
 |------|-----|--------|----------|
-| 1 | Alice | Add Friend → enter Bob's public ID → Find → Send request | Status: pending |
-| 2 | Bob | Add Friend → Pending requests → Accept | Request disappears |
+| 1 | Alice | Press sidebar `+` → enter Bob's public ID → search → Add friend | Status: pending |
+| 2 | Bob | Press sidebar `+` → Pending requests → Accept | Request disappears |
 | 3 | Both | Home → see each other in contacts | Both lists show the other friend |
 
-**Checkpoint:** Both users have an accepted friendship. If either contact links to `/friends/add` instead of chat, the conversation trigger may have failed — stop and investigate DB.
+**Checkpoint:** Both users have an accepted friendship. If either contact opens the add-friend dialog instead of chat, the conversation trigger may have failed — stop and investigate DB.
 
 ---
 

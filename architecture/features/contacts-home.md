@@ -17,9 +17,9 @@ flowchart LR
 
 | State | UI |
 |-------|-----|
-| No accepted friends | Empty state with link to `/friends/add` |
+| No accepted friends | Empty state opens add-friend dialog (`?addFriend=1`) |
 | Friend with conversation | Card links to `/chat/{conversationId}` |
-| Friend without conversation | Card links to `/friends/add` (edge case — should not happen if trigger ran) |
+| Friend without conversation | Card opens add-friend dialog (edge case — should not happen if trigger ran) |
 
 Each contact card shows:
 - Friend `display_name`

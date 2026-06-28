@@ -11,6 +11,7 @@ Extracted template: `chat-ui-template.html` (run `node scripts/extract-design.mj
 | **A · Classic** | Sidebar + chat panel | `/home` + `/chat/[id]` (split at `lg:`) |
 | **B · Focused** | Single-column chat | Mobile `/chat/[id]` only (back to sidebar) |
 | **C · Soft two-tone** | Dark rail + coral header | Future / desktop |
+| **Add friend dialog** | Modal from sidebar `+` | `/home`, `/chat/[id]` (`?addFriend=1`) |
 
 ## Design tokens
 

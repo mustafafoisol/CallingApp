@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Plus, Search, Settings } from "lucide-react";
+import { Search, Settings } from "lucide-react";
 import { ContactRow } from "@/components/contacts/contact-row";
+import { SidebarChrome } from "@/components/messages/sidebar-chrome";
 import type { Contact } from "@/lib/contacts/load-contacts";
 
 export function ContactsSidebar({
@@ -10,21 +11,14 @@ export function ContactsSidebar({
   contacts: Contact[];
   activeConversationId?: string | null;
 }) {
+  const addFriendHref = activeConversationId
+    ? `/chat/${activeConversationId}?addFriend=1`
+    : "/home?addFriend=1";
+
   return (
     <div className="flex h-full flex-col bg-[var(--chat-sidebar)]">
       <div className="px-5 pt-5 pb-3.5">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-[22px] font-bold tracking-tight text-[var(--chat-text)]">
-            Messages
-          </h1>
-          <Link
-            href="/friends/add"
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[var(--chat-coral)] text-white shadow-[0_2px_8px_rgba(242,107,82,0.35)]"
-            aria-label="Add friend"
-          >
-            <Plus className="h-4 w-4" />
-          </Link>
-        </div>
+        <SidebarChrome />
 
         <div className="flex items-center gap-2 rounded-[11px] bg-[#F1E9E3] px-3.5 py-2.5">
           <Search className="h-4 w-4 shrink-0 text-[#A8998F]" />
@@ -37,7 +31,7 @@ export function ContactsSidebar({
           <div className="mx-1 rounded-2xl border border-[var(--chat-border)] bg-[var(--chat-surface)] p-6 text-center text-sm text-[var(--chat-muted)]">
             <p>No contacts yet.</p>
             <Link
-              href="/friends/add"
+              href={addFriendHref}
               className="mt-2 inline-block font-medium text-[var(--chat-coral)]"
             >
               Add a friend by user ID
@@ -50,7 +44,7 @@ export function ContactsSidebar({
               href={
                 contact.conversationId
                   ? `/chat/${contact.conversationId}`
-                  : "/friends/add"
+                  : addFriendHref
               }
               name={contact.friend.display_name ?? "Friend"}
               preview={contact.preview}

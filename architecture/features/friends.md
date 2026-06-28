@@ -6,7 +6,7 @@ Add contacts by public ID, send requests, and accept or reject incoming requests
 
 ```mermaid
 flowchart TB
-  subgraph add [Add Friend — /friends/add]
+  subgraph add [Add Friend — sidebar + dialog]
     A[Enter public ID] --> B[GET /api/friends/lookup]
     B --> C{Found?}
     C -->|Yes| D[Show profile + Send request]
@@ -30,9 +30,19 @@ flowchart TB
 |--------|---------|-------------|
 | `pending` | Request sent, awaiting response | Insert on request |
 | `accepted` | Mutual contact; can chat | Addressee via accept |
-| `blocked` | Rejected request | Addressee via reject |
+| `blocked` | Legacy: rejected request (to be replaced) | Addressee via reject |
+| `declined` | *(planned)* Rejected request | Addressee via reject |
 
-**Note:** Reject currently sets `blocked`, not a separate "declined" state. There is no UI to unblock or manage blocked users yet.
+**Note:** Reject currently sets `blocked`, which will be separated from user-initiated **block** (see plan). Remove and block flows are not built yet.
+
+### Planned: Remove vs block
+
+| Action | Lookup | Messaging |
+|--------|--------|-----------|
+| **Remove friend** | Removed user can still find you by public ID | Only after re-accepted |
+| **Block friend** | Blocked user cannot find you at all | Never while blocked |
+
+See [remove-and-block-friends.md](../plans/phase2/remove-and-block-friends.md).
 
 ## Constraints
 
@@ -45,9 +55,10 @@ flowchart TB
 
 | File | Role |
 |------|------|
-| `apps/web/src/app/(app)/friends/add/page.tsx` | Add friend page |
-| `apps/web/src/app/(app)/friends/add/add-friend-form.tsx` | Lookup + send request UI |
-| `apps/web/src/app/(app)/friends/add/pending-requests.tsx` | Incoming pending list |
+| `apps/web/src/components/friends/add-friend-dialog.tsx` | Modal: lookup + send request |
+| `apps/web/src/components/friends/pending-requests-panel.tsx` | Incoming pending list (inside dialog) |
+| `apps/web/src/components/messages/sidebar-chrome.tsx` | `+` button opens dialog; `?addFriend=1` deep link |
+| `apps/web/src/app/(app)/friends/add/page.tsx` | Redirect → `/home?addFriend=1` |
 | `apps/web/src/app/api/friends/lookup/route.ts` | Find user by public ID |
 | `apps/web/src/app/api/friends/request/route.ts` | Create pending friendship |
 | `apps/web/src/app/api/friends/respond/route.ts` | Accept or reject |
@@ -125,6 +136,7 @@ See [data-model-and-security.md](./data-model-and-security.md).
 
 | Future need | See plan |
 |-------------|----------|
-| Block list UI | [blocking-and-moderation.md](../plans/phase2/blocking-and-moderation.md) |
+| Remove friend | [remove-and-block-friends.md](../plans/phase2/remove-and-block-friends.md) |
+| Block / unblock | [remove-and-block-friends.md](../plans/phase2/remove-and-block-friends.md) |
 | Outgoing request list | Query `status=pending` where `requester_id = me` |
 | Realtime pending notifications | Subscribe to `friendships` INSERT where `addressee_id = me` |

@@ -3,7 +3,7 @@ import { Home, Settings, UserPlus } from "lucide-react";
 
 const navItems = [
   { href: "/home", label: "Home", icon: Home },
-  { href: "/friends/add", label: "Add", icon: UserPlus },
+  { href: "/home?addFriend=1", label: "Add", icon: UserPlus },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

@@ -26,7 +26,8 @@ Warm chat-first layout using design tokens from `design/README.md`. Messaging us
 | File | Role |
 |------|------|
 | `messages-shell.tsx` | Split layout wrapper |
-| `contacts-sidebar.tsx` | Header, search, contact list, settings link |
+| `contacts-sidebar.tsx` | Search, contact list, settings link |
+| `sidebar-chrome.tsx` | Messages header, `+` opens add-friend dialog |
 | `chat-empty-state.tsx` | Right panel placeholder on `/home` |
 | `lib/contacts/load-contacts.ts` | Shared contact + preview loading |
 
@@ -34,7 +35,7 @@ On mobile, `/home` shows the sidebar only; `/chat/[id]` shows the chat panel wit
 
 ## App shell (secondary pages)
 
-`apps/web/src/components/app-shell.tsx` — used for `/friends/add` and `/settings` only.
+`apps/web/src/components/app-shell.tsx` — used for `/settings` only. Add friend is a dialog from the messages sidebar (`+` or `?addFriend=1`).
 
 ```
 ┌─────────────────────────┐
@@ -52,7 +53,7 @@ On mobile, `/home` shows the sidebar only; `/chat/[id]` shows the chat panel wit
 | `/onboarding` | Standalone centered | Auth (no shell) |
 | `/home` | MessagesShell (empty chat panel) | Protected |
 | `/chat/[id]` | MessagesShell (sidebar + chat) | Protected |
-| `/friends/add` | AppShell "Add Friend" | Protected |
+| `/friends/add` | Redirect → `/home?addFriend=1` | Protected |
 | `/settings` | AppShell "Settings" | Protected |
 
 ## UI primitives
