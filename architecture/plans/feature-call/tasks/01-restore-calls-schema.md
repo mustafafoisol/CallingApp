@@ -1,6 +1,6 @@
 # Task 01 — Restore Calls Schema
 
-**Milestone:** M1 · **Depends on:** 00 · **Est.:** 2h
+**Milestone:** M1 · **Depends on:** 00 · **Est.:** 2h · **Status:** ✅ Done
 
 ## Goal
 
@@ -27,15 +27,15 @@ create table public.calls (
 
 ## Checklist
 
-- [ ] Migration `supabase/migrations/YYYYMMDD_restore_calls.sql`
-- [ ] Index on `(callee_id, status)` for incoming lookup
-- [ ] Index on `(conversation_id, created_at desc)`
-- [ ] `REPLICA IDENTITY FULL` on `calls` (filtered Realtime)
-- [ ] RLS: SELECT/UPDATE for caller or callee
-- [ ] RLS: INSERT only `auth.uid() = caller_id` + friendship accepted + participant
-- [ ] Add `calls` to `supabase_realtime` publication
-- [ ] `npx supabase db push` on remote
-- [ ] Update `architecture/features/data-model-and-security.md`
+- [x] Migration `supabase/migrations/20250629000001_restore_calls.sql`
+- [x] Index on `(callee_id, status)` for incoming lookup
+- [x] Index on `(conversation_id, created_at desc)`
+- [x] `REPLICA IDENTITY FULL` on `calls` (filtered Realtime)
+- [x] RLS: SELECT/UPDATE for caller or callee
+- [x] RLS: INSERT only `auth.uid() = caller_id` + friendship accepted + participant
+- [x] Add `calls` to `supabase_realtime` publication
+- [x] `npx supabase db push` on remote
+- [x] Update `architecture/features/data-model-and-security.md`
 
 ## RLS sketch
 
@@ -53,12 +53,14 @@ SELECT relreplident FROM pg_class WHERE relname = 'calls';
 -- expect 'f' (FULL)
 ```
 
-- [ ] Authenticated user can INSERT as caller (manual SQL or API test)
-- [ ] Non-participant INSERT fails
+- [x] Migration applied on remote (`20250629000001_restore_calls.sql`)
+- [ ] Authenticated user can INSERT as caller (manual — task 04)
+- [ ] Non-participant INSERT fails (manual — task 04)
 
 ## Files
 
 | File | Action |
 |------|--------|
-| `supabase/migrations/*_restore_calls.sql` | Create |
-| `architecture/features/data-model-and-security.md` | Update |
+| `supabase/migrations/20250629000001_restore_calls.sql` | Created |
+| `supabase/migrations/20250628240001_envelopes_replica_identity.sql` | Synced with remote history |
+| `architecture/features/data-model-and-security.md` | Updated |

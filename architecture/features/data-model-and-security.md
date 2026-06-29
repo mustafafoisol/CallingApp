@@ -12,6 +12,7 @@ erDiagram
   profiles ||--o{ conversations : "user_a"
   profiles ||--o{ conversations : "user_b"
   conversations ||--o{ messages : contains
+  conversations ||--o{ calls : contains
 
   profiles {
     uuid id PK
@@ -121,6 +122,32 @@ erDiagram
 
 **PK:** `(user_id, message_id)` — per-user hide for others' messages.
 
+### `calls`
+
+WebRTC voice/video signaling. Media is peer-to-peer; server stores call metadata and SDP only.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `conversation_id` | uuid FK | ON DELETE CASCADE |
+| `caller_id` | uuid FK | Must equal `auth.uid()` on insert |
+| `callee_id` | uuid FK | Other conversation participant |
+| `kind` | text | `'voice'` or `'video'` (v1 uses voice) |
+| `status` | text | `ringing`, `accepted`, `ended`, `missed`, `rejected`, `busy` |
+| `offer_sdp` | text | Caller WebRTC offer (full SDP) |
+| `answer_sdp` | text | Callee WebRTC answer (full SDP) |
+| `started_at` | timestamptz | Set when callee accepts |
+| `ended_at` | timestamptz | Set when call ends |
+| `created_at` | timestamptz | Default `now()` |
+
+**Indexes:** `calls_conversation_idx (conversation_id, created_at DESC)`, `calls_callee_status_idx (callee_id, status)`
+
+**Constraints:** `calls_distinct_participants` — caller ≠ callee
+
+`calls.replica identity full` — required for filtered Realtime subscriptions.
+
+See [feature-call SPEC](../plans/feature-call/SPEC.md).
+
 ### Storage: `chat-media`
 
 | Setting | Value |
@@ -184,12 +211,22 @@ No INSERT policy for clients — conversations created only by trigger (security
 | `message_hides_select_own` | SELECT | `user_id = auth.uid()` |
 | `message_hides_insert_own` | INSERT | Own row; message not own; not already globally removed |
 
+### `calls`
+
+| Policy | Operation | Rule |
+|--------|-----------|------|
+| `calls_select_participant` | SELECT | `auth.uid()` is caller or callee |
+| `calls_insert_caller` | INSERT | Caller is auth user, both users in conversation, friendship `accepted` |
+| `calls_update_participant` | UPDATE | Caller or callee (accept, reject, end, SDP writes) |
+
 `messages.replica identity full` — required for realtime UPDATE payloads.
 
 ## Realtime publication
 
 Tables in `supabase_realtime`:
-- `messages` — actively used by chat
+- `messages` — legacy chat path (images)
+- `message_envelopes` — E2EE text relay
+- `calls` — voice/video signaling
 
 ## Migrations
 
@@ -199,6 +236,7 @@ Tables in `supabase_realtime`:
 | `20250625000002_realtime_calls.sql` | Historical — calls realtime (superseded by 004) |
 | `20250625000003_call_signaling.sql` | Historical — SDP columns on calls (superseded by 004) |
 | `20250627000001_drop_calls.sql` | Drops legacy `calls` table and removes from realtime |
+| `20250629000001_restore_calls.sql` | Restores `calls` for WebRTC signaling (voice v1) |
 | `20250628100001_image_attachments.sql` | `attachment_url`, `type` image, body check for images |
 | `20250628100002_chat_media_storage.sql` | `chat-media` bucket + storage RLS |
 
