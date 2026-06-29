@@ -8,14 +8,14 @@ Client library to create calls, subscribe to events, and exchange SDP via Postgr
 
 ## Checklist
 
-- [ ] `createCall({ conversationId, calleeId, kind })` → INSERT `calls` status `ringing`
-- [ ] `subscribeToCall(callId, handlers)` — Realtime on `calls` row + broadcast channel `call:{id}`
-- [ ] `acceptCall(callId)` — callee UPDATE `status=accepted`, `started_at=now()`
-- [ ] `rejectCall(callId)` — callee UPDATE `status=rejected`
-- [ ] `endCall(callId)` — UPDATE `status=ended`, `ended_at=now()`
-- [ ] `writeOfferSdp(callId, sdp)` / `writeAnswerSdp(callId, sdp)` — UPDATE columns
-- [ ] `waitForAnswerSdp(callId)` — poll or Realtime until `answer_sdp` set
-- [ ] Guard transitions with `canTransition` from core
+- [x] `createCall({ conversationId, calleeId, kind })` → INSERT `calls` status `ringing`
+- [x] `subscribeToCall(callId, handlers)` — Realtime on `calls` row + broadcast channel `call:{id}`
+- [x] `acceptCall(callId)` — callee UPDATE `status=accepted`, `started_at=now()`
+- [x] `rejectCall(callId)` — callee UPDATE `status=rejected`
+- [x] `endCall(callId)` — UPDATE `status=ended`, `ended_at=now()`
+- [x] `writeOfferSdp(callId, sdp)` / `writeAnswerSdp(callId, sdp)` — UPDATE columns
+- [x] `waitForAnswerSdp(callId)` — poll or Realtime until `answer_sdp` set
+- [x] Guard transitions with `canTransition` from core
 
 ## Realtime strategy
 
