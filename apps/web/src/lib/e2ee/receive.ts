@@ -2,12 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAad, decryptMessage } from "@calling-app/core";
 
 import type { CallingAppVault } from "@/lib/vault/schema";
-import { type MessageEnvelopeRow, toEncryptedEnvelope } from "./envelope";
 import {
-  ensureConversationKey,
-  invalidateConversationKey,
-  tryFetchPeerCryptoKey,
-} from "./key-exchange";
+  parseBytea,
+  parseIdentityPubkey,
+  type CryptoScheme,
+  type MessageCryptoMeta,
+  type MessageEnvelopeRow,
+  toEncryptedEnvelope,
+} from "./envelope";
+import { deriveCkForMessage, tryFetchPeerCryptoKey } from "./key-exchange";
 
 export interface ProcessEnvelopeResult {
   messageId: string;
@@ -17,6 +20,77 @@ export interface ProcessEnvelopeResult {
 }
 
 const inflightEnvelopes = new Map<string, Promise<ProcessEnvelopeResult>>();
+
+function schemesToTry(primary: CryptoScheme): CryptoScheme[] {
+  if (primary === "static-v1") return ["static-v1", "gen-v1"];
+  return ["gen-v1", "static-v1"];
+}
+
+async function resolveSenderPubkey(
+  supabase: SupabaseClient,
+  row: MessageEnvelopeRow,
+): Promise<Uint8Array> {
+  const snapshot = parseIdentityPubkey(row.sender_pubkey);
+  if (snapshot) return snapshot;
+
+  const senderKey = await tryFetchPeerCryptoKey(supabase, row.sender_id);
+  if (!senderKey) {
+    throw new Error(`Sender ${row.sender_id} has no published crypto key`);
+  }
+  const live = parseIdentityPubkey(senderKey.identity_pubkey);
+  if (!live) {
+    throw new Error(`Sender ${row.sender_id} has an invalid published crypto key`);
+  }
+  return live;
+}
+
+async function decryptEnvelope(
+  vault: CallingAppVault,
+  supabase: SupabaseClient,
+  row: MessageEnvelopeRow,
+): Promise<{ body: string; crypto: MessageCryptoMeta }> {
+  const peerPubkey = await resolveSenderPubkey(supabase, row);
+  const primaryScheme = row.crypto_scheme ?? "gen-v1";
+  const aad = buildAad({
+    conversationId: row.conversation_id,
+    senderId: row.sender_id,
+    messageId: row.id,
+    type: row.type,
+    senderKeyGeneration: row.sender_key_generation,
+  });
+  const envelope = toEncryptedEnvelope(row);
+
+  let lastDecryptError: unknown;
+  for (const scheme of schemesToTry(primaryScheme)) {
+    const ck = await deriveCkForMessage(
+      vault,
+      row.conversation_id,
+      peerPubkey,
+      scheme,
+      row.sender_key_generation,
+    );
+    try {
+      const plaintext = await decryptMessage(
+        ck,
+        envelope.ciphertext,
+        envelope.nonce,
+        aad,
+      );
+      return {
+        body: new TextDecoder().decode(plaintext),
+        crypto: {
+          scheme,
+          senderKeyGeneration: row.sender_key_generation,
+          senderPubkey: peerPubkey,
+        },
+      };
+    } catch (error) {
+      lastDecryptError = error;
+    }
+  }
+
+  throw lastDecryptError;
+}
 
 async function processEnvelopeOnce(
   supabase: SupabaseClient,
@@ -38,57 +112,7 @@ async function processEnvelopeOnce(
     };
   }
 
-  const senderKey = await tryFetchPeerCryptoKey(supabase, row.sender_id);
-  if (senderKey && row.sender_key_generation < senderKey.key_generation) {
-    await supabase.from("message_envelopes").delete().eq("id", row.id);
-    return {
-      messageId: row.id,
-      body: "",
-      createdAt: row.created_at,
-      skipped: true,
-    };
-  }
-
-  const aad = buildAad({
-    conversationId: row.conversation_id,
-    senderId: row.sender_id,
-    messageId: row.id,
-    type: row.type,
-    senderKeyGeneration: row.sender_key_generation,
-  });
-  const envelope = toEncryptedEnvelope(row);
-
-  let ck = await ensureConversationKey(
-    vault,
-    supabase,
-    row.conversation_id,
-    row.sender_id,
-    row.sender_key_generation,
-  );
-  let plaintext: Uint8Array;
-  try {
-    plaintext = await decryptMessage(ck, envelope.ciphertext, envelope.nonce, aad);
-  } catch (firstError) {
-    await invalidateConversationKey(
-      vault,
-      row.conversation_id,
-      row.sender_key_generation,
-    );
-    ck = await ensureConversationKey(
-      vault,
-      supabase,
-      row.conversation_id,
-      row.sender_id,
-      row.sender_key_generation,
-    );
-    try {
-      plaintext = await decryptMessage(ck, envelope.ciphertext, envelope.nonce, aad);
-    } catch {
-      throw firstError;
-    }
-  }
-
-  const body = new TextDecoder().decode(plaintext);
+  const { body, crypto } = await decryptEnvelope(vault, supabase, row);
   const createdAt = row.created_at;
 
   await vault.messages.put({
@@ -100,6 +124,7 @@ async function processEnvelopeOnce(
     attachmentId: row.attachment_id,
     createdAt,
     removedAt: null,
+    crypto,
   });
 
   const { error } = await supabase.from("message_envelopes").delete().eq("id", row.id);

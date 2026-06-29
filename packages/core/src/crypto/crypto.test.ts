@@ -3,6 +3,7 @@ import {
   buildAad,
   decryptMessage,
   deriveConversationKey,
+  deriveConversationKeyStatic,
   deriveSharedSecret,
   encryptMessage,
   generateIdentityKeyPair,
@@ -23,7 +24,31 @@ function sampleAad(senderKeyGeneration: number) {
 }
 
 describe("crypto", () => {
-  it("derives the same conversation key for both parties", async () => {
+  it("derives the same static conversation key for both parties", async () => {
+    const alice = await generateIdentityKeyPair();
+    const bob = await generateIdentityKeyPair();
+
+    const aliceShared = await deriveSharedSecret(alice.privateKey, bob.publicKey);
+    const bobShared = await deriveSharedSecret(bob.privateKey, alice.publicKey);
+    expect(aliceShared).toEqual(bobShared);
+
+    const aliceCk = await deriveConversationKeyStatic(aliceShared, CONVERSATION_ID);
+    const bobCk = await deriveConversationKeyStatic(bobShared, CONVERSATION_ID);
+
+    const plaintext = new TextEncoder().encode("hello static");
+    const aad = sampleAad(1);
+    const envelope = await encryptMessage(aliceCk, plaintext, aad);
+    const decrypted = await decryptMessage(
+      bobCk,
+      envelope.ciphertext,
+      envelope.nonce,
+      aad,
+    );
+
+    expect(new TextDecoder().decode(decrypted)).toBe("hello static");
+  });
+
+  it("derives the same legacy conversation key for both parties", async () => {
     const alice = await generateIdentityKeyPair();
     const bob = await generateIdentityKeyPair();
     const peerKeyGeneration = 1;

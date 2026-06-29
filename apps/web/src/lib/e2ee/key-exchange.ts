@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  deriveConversationKey,
+  deriveConversationKeyLegacy,
+  deriveConversationKeyStatic,
   deriveSharedSecret,
   importPrivateKeyRaw,
   importPublicKeyRaw,
@@ -8,27 +9,11 @@ import {
 
 import type { CallingAppVault } from "@/lib/vault/schema";
 import { DEVICE_IDENTITY_KEY } from "@/lib/vault/schema";
-import { parseBytea, type UserCryptoKeyRow } from "./envelope";
-
-const subtle = globalThis.crypto.subtle;
-
-function ckId(conversationId: string, generation: number): string {
-  return `${conversationId}:${generation}`;
-}
-
-async function importAesKey(raw: Uint8Array): Promise<CryptoKey> {
-  return subtle.importKey(
-    "raw",
-    raw as BufferSource,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"],
-  );
-}
-
-async function exportAesKey(key: CryptoKey): Promise<Uint8Array> {
-  return new Uint8Array(await subtle.exportKey("raw", key));
-}
+import {
+  parseIdentityPubkey,
+  type CryptoScheme,
+  type UserCryptoKeyRow,
+} from "./envelope";
 
 export async function tryFetchPeerCryptoKey(
   supabase: SupabaseClient,
@@ -43,7 +28,7 @@ export async function tryFetchPeerCryptoKey(
   return (data as UserCryptoKeyRow | null) ?? null;
 }
 
-async function fetchPeerCryptoKey(
+export async function fetchPeerCryptoKey(
   supabase: SupabaseClient,
   peerUserId: string,
 ): Promise<UserCryptoKeyRow> {
@@ -60,7 +45,8 @@ export async function prefetchPeerPublicKey(
   const peer = await tryFetchPeerCryptoKey(supabase, peerUserId);
   if (!peer) return false;
 
-  const peerPubkey = parseBytea(peer.identity_pubkey);
+  const peerPubkey = parseIdentityPubkey(peer.identity_pubkey);
+  if (!peerPubkey) return false;
   const pinned = await vault.trusted_pubkeys.get(peerUserId);
   if (
     !pinned ||
@@ -79,76 +65,26 @@ export async function prefetchPeerPublicKey(
   return true;
 }
 
-export async function loadConversationKey(
+export async function deriveCkForMessage(
   vault: CallingAppVault,
   conversationId: string,
-  peerKeyGeneration: number,
-): Promise<CryptoKey | undefined> {
-  const row = await vault.crypto_material.get(ckId(conversationId, peerKeyGeneration));
-  return row ? importAesKey(row.conversationKey) : undefined;
-}
-
-export async function invalidateConversationKey(
-  vault: CallingAppVault,
-  conversationId: string,
-  peerKeyGeneration: number,
-): Promise<void> {
-  await vault.crypto_material.delete(ckId(conversationId, peerKeyGeneration));
-}
-
-function pubkeysEqual(a: Uint8Array, b: Uint8Array): boolean {
-  return a.length === b.length && a.every((byte, index) => byte === b[index]);
-}
-
-export async function ensureConversationKey(
-  vault: CallingAppVault,
-  supabase: SupabaseClient,
-  conversationId: string,
-  peerUserId: string,
-  derivationGeneration?: number,
+  peerPubkey: Uint8Array,
+  scheme: CryptoScheme,
+  senderKeyGeneration: number,
 ): Promise<CryptoKey> {
-  const peer = await fetchPeerCryptoKey(supabase, peerUserId);
-  const generation = derivationGeneration ?? peer.key_generation;
-  const peerPubkey = parseBytea(peer.identity_pubkey);
-
-  const cached = await loadConversationKey(vault, conversationId, generation);
-  if (cached) {
-    const pinned = await vault.trusted_pubkeys.get(peerUserId);
-    const cacheValid =
-      pinned &&
-      pinned.keyGeneration === peer.key_generation &&
-      pubkeysEqual(pinned.identityPubkey, peerPubkey);
-
-    if (cacheValid) return cached;
-    await invalidateConversationKey(vault, conversationId, generation);
-  }
-
-  const pinned = await vault.trusted_pubkeys.get(peerUserId);
-  if (
-    !pinned ||
-    pinned.keyGeneration !== generation ||
-    !pubkeysEqual(pinned.identityPubkey, peerPubkey)
-  ) {
-    await vault.trusted_pubkeys.put({
-      userId: peerUserId,
-      identityPubkey: peerPubkey,
-      keyGeneration: generation,
-      pinnedAt: new Date().toISOString(),
-    });
-  }
-
   const identity = await vault.device_identity.get(DEVICE_IDENTITY_KEY);
   if (!identity) throw new Error("Device identity key is missing");
 
   const myPrivate = await importPrivateKeyRaw(identity.identityPrivateKey);
   const peerPublic = await importPublicKeyRaw(peerPubkey);
   const shared = await deriveSharedSecret(myPrivate, peerPublic);
-  const ck = await deriveConversationKey(shared, conversationId, generation);
-  await vault.crypto_material.put({
-    id: ckId(conversationId, generation),
+
+  if (scheme === "static-v1") {
+    return deriveConversationKeyStatic(shared, conversationId);
+  }
+  return deriveConversationKeyLegacy(
+    shared,
     conversationId,
-    peerKeyGeneration: generation,
-    conversationKey: await exportAesKey(ck),
-  });
-  return ck;
+    senderKeyGeneration,
+  );
 }

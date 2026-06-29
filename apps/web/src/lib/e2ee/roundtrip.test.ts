@@ -14,41 +14,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEVICE_IDENTITY_KEY } from "@/lib/vault/schema";
 import { closeVault, openVault } from "@/lib/vault/store";
 import { wipeVault } from "@/lib/vault/wipe";
-import { serializeBytea } from "./envelope";
-import { ensureConversationKey } from "./key-exchange";
+import { deriveCkForMessage } from "./key-exchange";
 
 const CONVERSATION_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const ALICE_ID = "11111111-1111-1111-1111-111111111111";
 const BOB_ID = "22222222-2222-2222-2222-222222222222";
 
-function makeSupabase(keys: Record<string, { generation: number; publicKey: Uint8Array }>) {
-  return {
-    from: (table: string) => {
-      if (table !== "user_crypto_keys") throw new Error(`unexpected table ${table}`);
-      return {
-        select: () => ({
-          eq: (_col: string, userId: string) => ({
-            maybeSingle: async () => {
-              const row = keys[userId];
-              if (!row) return { data: null, error: null };
-              return {
-                data: {
-                  user_id: userId,
-                  identity_pubkey: serializeBytea(row.publicKey),
-                  key_generation: row.generation,
-                  updated_at: "2026-06-29T00:00:00Z",
-                },
-                error: null,
-              };
-            },
-          }),
-        }),
-      };
-    },
-  };
-}
-
-describe("e2ee happy path", () => {
+describe("e2ee static conversation key", () => {
   let alicePair: Awaited<ReturnType<typeof generateIdentityKeyPair>>;
   let bobPair: Awaited<ReturnType<typeof generateIdentityKeyPair>>;
   let alicePub: Uint8Array;
@@ -85,95 +57,85 @@ describe("e2ee happy path", () => {
     return vault;
   }
 
-  it("send and receive derive the same key when both users are on generation 1", async () => {
-    const supabase = makeSupabase({
-      [ALICE_ID]: { generation: 1, publicKey: alicePub },
-      [BOB_ID]: { generation: 1, publicKey: bobPub },
-    });
-
+  it("derives the same static key for both directions", async () => {
     const aliceVault = await seedIdentity(ALICE_ID, alicePair, alicePub, 1);
-    const bobVault = await seedIdentity(BOB_ID, bobPair, bobPub, 1);
+    const bobVault = await seedIdentity(BOB_ID, bobPair, bobPub, 3);
 
-    const senderCk = await ensureConversationKey(
+    const aliceToBob = await deriveCkForMessage(
       aliceVault,
-      supabase as never,
       CONVERSATION_ID,
-      BOB_ID,
+      bobPub,
+      "static-v1",
       1,
     );
-    const receiverCk = await ensureConversationKey(
+    const bobFromAlice = await deriveCkForMessage(
       bobVault,
-      supabase as never,
       CONVERSATION_ID,
-      ALICE_ID,
+      alicePub,
+      "static-v1",
       1,
     );
+    const bobToAlice = await deriveCkForMessage(
+      bobVault,
+      CONVERSATION_ID,
+      alicePub,
+      "static-v1",
+      3,
+    );
+    const aliceFromBob = await deriveCkForMessage(
+      aliceVault,
+      CONVERSATION_ID,
+      bobPub,
+      "static-v1",
+      3,
+    );
 
-    const senderRaw = new Uint8Array(
-      await globalThis.crypto.subtle.exportKey("raw", senderCk),
+    const aliceToBobRaw = new Uint8Array(
+      await globalThis.crypto.subtle.exportKey("raw", aliceToBob),
     );
-    const receiverRaw = new Uint8Array(
-      await globalThis.crypto.subtle.exportKey("raw", receiverCk),
+    const bobFromAliceRaw = new Uint8Array(
+      await globalThis.crypto.subtle.exportKey("raw", bobFromAlice),
     );
-    expect(senderRaw).toEqual(receiverRaw);
+    const bobToAliceRaw = new Uint8Array(
+      await globalThis.crypto.subtle.exportKey("raw", bobToAlice),
+    );
+    const aliceFromBobRaw = new Uint8Array(
+      await globalThis.crypto.subtle.exportKey("raw", aliceFromBob),
+    );
 
-    const messageId = "msg-happy-1";
-    const aad = buildAad({
-      conversationId: CONVERSATION_ID,
-      senderId: ALICE_ID,
-      messageId,
-      type: "text",
-      senderKeyGeneration: 1,
-    });
-    const envelope = await encryptMessage(
-      senderCk,
-      new TextEncoder().encode("hello bob"),
-      aad,
-    );
-    const plaintext = await decryptMessage(
-      receiverCk,
-      envelope.ciphertext,
-      envelope.nonce,
-      aad,
-    );
-    expect(new TextDecoder().decode(plaintext)).toBe("hello bob");
+    expect(aliceToBobRaw).toEqual(bobFromAliceRaw);
+    expect(bobToAliceRaw).toEqual(aliceFromBobRaw);
   });
 
-  it("still decrypts after peer re-login bumps generation to 2", async () => {
-    const bobPubGen2 = bobPub;
-    const supabase = makeSupabase({
-      [ALICE_ID]: { generation: 1, publicKey: alicePub },
-      [BOB_ID]: { generation: 2, publicKey: bobPubGen2 },
-    });
-
+  it("decrypts using envelope pubkey snapshot after server pubkey changes", async () => {
     const aliceVault = await seedIdentity(ALICE_ID, alicePair, alicePub, 1);
-    const bobVault = await seedIdentity(BOB_ID, bobPair, bobPubGen2, 2);
+    const bobVault = await seedIdentity(BOB_ID, bobPair, bobPub, 2);
 
-    const senderCk = await ensureConversationKey(
+    const senderCk = await deriveCkForMessage(
       bobVault,
-      supabase as never,
       CONVERSATION_ID,
-      ALICE_ID,
+      alicePub,
+      "static-v1",
       2,
     );
-    const receiverCk = await ensureConversationKey(
+    const receiverCk = await deriveCkForMessage(
       aliceVault,
-      supabase as never,
       CONVERSATION_ID,
-      BOB_ID,
+      bobPub,
+      "static-v1",
       2,
     );
 
     const aad = buildAad({
       conversationId: CONVERSATION_ID,
       senderId: BOB_ID,
-      messageId: "msg-after-relogin",
+      messageId: "msg-snapshot",
       type: "text",
       senderKeyGeneration: 2,
     });
     const envelope = await encryptMessage(
       senderCk,
-      new TextEncoder().encode("bob is back"),
+      new TextEncoder().encode("hello alice"),
       aad,
     );
     const plaintext = await decryptMessage(
@@ -182,6 +144,21 @@ describe("e2ee happy path", () => {
       envelope.nonce,
       aad,
     );
-    expect(new TextDecoder().decode(plaintext)).toBe("bob is back");
+    expect(new TextDecoder().decode(plaintext)).toBe("hello alice");
+
+    const snapshotCk = await deriveCkForMessage(
+      aliceVault,
+      CONVERSATION_ID,
+      bobPub,
+      "static-v1",
+      2,
+    );
+    const snapshotPlain = await decryptMessage(
+      snapshotCk,
+      envelope.ciphertext,
+      envelope.nonce,
+      aad,
+    );
+    expect(new TextDecoder().decode(snapshotPlain)).toBe("hello alice");
   });
 });

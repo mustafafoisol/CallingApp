@@ -6,8 +6,9 @@ CallingApp is a **free, web-first 1-on-1 chat application**. Users sign in with 
 
 ## Documentation map
 
-| Folder | Purpose |
-|--------|---------|
+| Folder / doc | Purpose |
+|---------------|---------|
+| [`design-decisions.md`](./design-decisions.md) | **Authoritative** product/system decisions (supersedes conflicting plans) |
 | [`features/`](./features/) | Completed capabilities — how they work today, with file maps, flows, APIs, and schema |
 | [`plans/`](./plans/) | Phased rollout plans — `phase1/` (active) through `phase4/` |
 | [`feature-tests/`](./feature-tests/) | Manual test guides and scenario test plans per feature |

@@ -3,8 +3,12 @@ import { buildAad, encryptMessage } from "@calling-app/core";
 
 import type { CallingAppVault } from "@/lib/vault/schema";
 import { DEVICE_IDENTITY_KEY } from "@/lib/vault/schema";
-import { serializeBytea } from "./envelope";
-import { ensureConversationKey } from "./key-exchange";
+import { fetchPeerCryptoKey, deriveCkForMessage } from "./key-exchange";
+import {
+  isMissingCryptoMetaColumn,
+  parseIdentityPubkey,
+  serializeBytea,
+} from "./envelope";
 
 export interface SendEncryptedTextParams {
   conversationId: string;
@@ -29,11 +33,16 @@ export async function sendEncryptedText(
   const identity = await vault.device_identity.get(DEVICE_IDENTITY_KEY);
   if (!identity) throw new Error("Device identity key is missing");
 
-  const ck = await ensureConversationKey(
+  const peer = await fetchPeerCryptoKey(supabase, recipientId);
+  const recipientPubkey = parseIdentityPubkey(peer.identity_pubkey);
+  if (!recipientPubkey) {
+    throw new Error(`Peer ${recipientId} has an invalid published crypto key`);
+  }
+  const ck = await deriveCkForMessage(
     vault,
-    supabase,
     conversationId,
-    recipientId,
+    recipientPubkey,
+    "static-v1",
     identity.keyGeneration,
   );
 
@@ -47,17 +56,26 @@ export async function sendEncryptedText(
   const encrypted = await encryptMessage(ck, new TextEncoder().encode(body), aad);
   const createdAt = new Date().toISOString();
 
-  const { error } = await supabase.from("message_envelopes").insert({
+  const envelopeRow = {
     id: messageId,
     conversation_id: conversationId,
     sender_id: senderId,
     recipient_id: recipientId,
-    type: "text",
+    type: "text" as const,
     ciphertext: serializeBytea(encrypted.ciphertext),
     nonce: serializeBytea(encrypted.nonce),
     sender_key_generation: identity.keyGeneration,
+    sender_pubkey: serializeBytea(identity.identityPublicKey),
+    crypto_scheme: "static-v1" as const,
     attachment_id: null,
-  });
+  };
+
+  let { error } = await supabase.from("message_envelopes").insert(envelopeRow);
+  if (error && isMissingCryptoMetaColumn(error)) {
+    const { sender_pubkey: _pk, crypto_scheme: _scheme, ...legacyRow } =
+      envelopeRow;
+    ({ error } = await supabase.from("message_envelopes").insert(legacyRow));
+  }
   if (error) throw error;
 
   await vault.messages.put({
@@ -69,6 +87,11 @@ export async function sendEncryptedText(
     attachmentId: null,
     createdAt,
     removedAt: null,
+    crypto: {
+      scheme: "static-v1",
+      senderKeyGeneration: identity.keyGeneration,
+      senderPubkey: identity.identityPublicKey,
+    },
   });
 
   return { envelopeId: messageId, createdAt };

@@ -61,6 +61,26 @@ export function confirmPendingMessage(
   return next;
 }
 
+export function mergeLoadedVaultMessages(
+  prev: ChatMessage[],
+  loaded: MessageRow[],
+): ChatMessage[] {
+  const loadedIds = new Set(loaded.map((message) => message.id));
+  const confirmed = loaded.map((message) => ({
+    ...message,
+    status: "confirmed" as const,
+  }));
+  const pending = prev.filter(
+    (message) =>
+      (message.status === "pending" || message.status === "failed") &&
+      !loadedIds.has(message.id) &&
+      (message.clientId ? !loadedIds.has(message.clientId) : true),
+  );
+  return [...confirmed, ...pending].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at),
+  );
+}
+
 export function reconcileIncomingMessage(
   messages: ChatMessage[],
   incoming: MessageRow,

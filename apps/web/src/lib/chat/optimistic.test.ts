@@ -3,6 +3,7 @@ import {
   confirmPendingMessage,
   createPendingMessage,
   markMessageFailed,
+  mergeLoadedVaultMessages,
   reconcileIncomingMessage,
   removeMessageByClientId,
 } from "./optimistic";
@@ -79,6 +80,25 @@ describe("reconcileIncomingMessage", () => {
     const result = reconcileIncomingMessage([], incoming, "user-1");
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("msg-2");
+  });
+});
+
+describe("mergeLoadedVaultMessages", () => {
+  it("keeps pending messages not yet in vault", () => {
+    const pending = createPendingMessage("abc", "user-1", "Sending…");
+    const loaded = [
+      {
+        id: "msg-1",
+        sender_id: "user-2",
+        body: "Hi",
+        type: "text" as const,
+        created_at: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+
+    const result = mergeLoadedVaultMessages([pending], loaded);
+    expect(result).toHaveLength(2);
+    expect(result[1].status).toBe("pending");
   });
 });
 

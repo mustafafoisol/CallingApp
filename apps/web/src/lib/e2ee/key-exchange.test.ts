@@ -10,6 +10,8 @@ import { wipeVault } from "@/lib/vault/wipe";
 const USER_ID = "prefetch-user";
 const PEER_ID = "peer-user";
 
+const PEER_PUBKEY_HEX = "cd".repeat(32);
+
 describe("prefetchPeerPublicKey", () => {
   beforeEach(async () => {
     await wipeVault(USER_ID);
@@ -26,7 +28,7 @@ describe("prefetchPeerPublicKey", () => {
     const maybeSingle = vi.fn(async () => ({
       data: {
         user_id: PEER_ID,
-        identity_pubkey: "\\x040506",
+        identity_pubkey: `\\x${PEER_PUBKEY_HEX}`,
         key_generation: 1,
         updated_at: "2026-01-01T00:00:00Z",
       },
@@ -49,7 +51,7 @@ describe("prefetchPeerPublicKey", () => {
     expect(available).toBe(true);
     const pinned = await vault.trusted_pubkeys.get(PEER_ID);
     expect(pinned?.keyGeneration).toBe(1);
-    expect(pinned?.identityPubkey).toEqual(new Uint8Array([4, 5, 6]));
+    expect(pinned?.identityPubkey?.length).toBe(32);
   });
 
   it("returns false when peer has not published a key", async () => {

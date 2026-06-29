@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { CallingAppVault } from "@/lib/vault/schema";
-import { type MessageEnvelopeRow } from "./envelope";
+import { listEnvelopesForRecipient } from "./envelope-query";
 import { processEnvelope } from "./receive";
 
 export async function catchUpEnvelopes(
@@ -9,17 +9,10 @@ export async function catchUpEnvelopes(
   vault: CallingAppVault,
   recipientId: string,
 ): Promise<number> {
-  const { data, error } = await supabase
-    .from("message_envelopes")
-    .select(
-      "id, conversation_id, sender_id, recipient_id, type, ciphertext, nonce, sender_key_generation, attachment_id, created_at, expires_at",
-    )
-    .eq("recipient_id", recipientId)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
+  const rows = await listEnvelopesForRecipient(supabase, recipientId);
 
   let processed = 0;
-  for (const row of (data ?? []) as MessageEnvelopeRow[]) {
+  for (const row of rows) {
     try {
       const result = await processEnvelope(supabase, vault, row);
       if (!result.skipped) processed += 1;

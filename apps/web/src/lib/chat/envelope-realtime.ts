@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { MessageEnvelopeRow } from "@/lib/e2ee/envelope";
+import { normalizeEnvelopeRow, type MessageEnvelopeRow } from "@/lib/e2ee/envelope";
 
 const POLL_MS = 5000;
 const RETRY_MS = 3000;
@@ -20,6 +20,17 @@ export function subscribeToConversationEnvelopes(
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let connectPromise: Promise<void> | null = null;
   let cancelled = false;
+  let intentionalTeardown = false;
+
+  function reportStatus(status: string) {
+    if (status === "SUBSCRIBED") {
+      options.onStatus(status);
+      return;
+    }
+    if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      options.onStatus(status);
+    }
+  }
 
   async function teardown() {
     if (retryTimer) {
@@ -27,7 +38,9 @@ export function subscribeToConversationEnvelopes(
       retryTimer = null;
     }
     if (channel) {
+      intentionalTeardown = true;
       await supabase.removeChannel(channel);
+      intentionalTeardown = false;
       channel = null;
     }
   }
@@ -66,16 +79,21 @@ export function subscribeToConversationEnvelopes(
           filter: `recipient_id=eq.${options.recipientId}`,
         },
         (payload) => {
-          const row = payload.new as MessageEnvelopeRow;
+          const row = normalizeEnvelopeRow(
+            payload.new as Parameters<typeof normalizeEnvelopeRow>[0],
+          );
           if (row.conversation_id !== options.conversationId) return;
           options.onEnvelope(row);
         },
       )
       .subscribe((status, err) => {
         if (cancelled) return;
-        options.onStatus(status);
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        if (status === "CLOSED" && intentionalTeardown) return;
+        reportStatus(status);
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           console.error("[chat] realtime failed", status, err);
+          scheduleReconnect();
+        } else if (status === "CLOSED") {
           scheduleReconnect();
         }
       });

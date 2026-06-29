@@ -29,6 +29,12 @@ export interface TrustedPubkeyRow {
   pinnedAt: string;
 }
 
+export interface MessageCryptoMeta {
+  scheme: "static-v1" | "gen-v1";
+  senderKeyGeneration: number;
+  senderPubkey: Uint8Array;
+}
+
 export interface VaultMessageRow {
   id: string;
   conversationId: string;
@@ -38,6 +44,7 @@ export interface VaultMessageRow {
   attachmentId: string | null;
   createdAt: string;
   removedAt: string | null;
+  crypto?: MessageCryptoMeta;
 }
 
 export interface ConversationRow {
