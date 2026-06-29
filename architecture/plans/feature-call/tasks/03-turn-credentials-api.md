@@ -8,12 +8,12 @@ Server route that returns short-lived ICE server config (STUN + TURN).
 
 ## Checklist
 
-- [ ] `GET /api/turn` (or POST) — authenticated only
-- [ ] Read `METERED_TURN_API_KEY` from env (server-only)
-- [ ] Return `{ iceServers: RTCIceServer[] }` JSON
-- [ ] Cache credentials client-side ~1h (Metered TTL)
-- [ ] Document env in `.env.example` and `architecture/features/infrastructure.md`
-- [ ] Graceful error when key missing (dev: STUN-only fallback with console warning)
+- [x] `GET /api/turn` (or POST) — authenticated only
+- [x] Read `METERED_TURN_API_KEY` from env (server-only)
+- [x] Return `{ iceServers: RTCIceServer[] }` JSON
+- [ ] Cache credentials client-side ~1h (Metered TTL) — deferred to task 05 `fetchIceServers`
+- [x] Document env in `.env.example` and `architecture/features/infrastructure.md`
+- [x] Graceful error when key missing (dev: STUN-only fallback with console warning)
 
 ## Response shape
 
