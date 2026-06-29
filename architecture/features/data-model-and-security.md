@@ -94,7 +94,9 @@ erDiagram
 - `conversations_ordered`: `user_a_id < user_b_id`
 - `conversations_unique_pair`: unique `(user_a_id, user_b_id)`
 
-### `messages`
+### `messages` (legacy — deprecated for new traffic)
+
+> **E2EE migration:** New chat traffic uses `message_envelopes` (ciphertext relay) and local IndexedDB vault for decrypted history. The `messages` table was purged by `20250628150002_e2ee_purge_legacy.sql` and must not receive new plaintext inserts once the UI rewire (task 05) ships. See [e2ee-local-chat.md](./e2ee-local-chat.md).
 
 | Column | Type | Notes |
 |--------|------|-------|

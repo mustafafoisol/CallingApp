@@ -106,13 +106,17 @@ See `.env.example` at repo root.
 1. [Authentication](./features/authentication.md) — Google OAuth, session cookies, route guards
 2. [Onboarding & Profiles](./features/onboarding-and-profiles.md) — Display name, public ID generation
 3. [Friends](./features/friends.md) — Lookup, request, accept/reject
-4. [Realtime Chat](./features/realtime-chat.md) — 1-on-1 text messaging
+4. [Realtime Chat](./features/realtime-chat.md) — 1-on-1 text messaging (legacy plaintext path)
 5. [Contacts Home](./features/contacts-home.md) — Friend list sorted by recent activity
 6. [Settings](./features/settings.md) — Profile edit, copy ID, logout
 7. [Data Model & Security](./features/data-model-and-security.md) — Schema, RLS, triggers
 8. [Shared Core Package](./features/shared-core.md) — `@calling-app/core` utilities
 9. [UI Shell](./features/ui-shell.md) — Layout, navigation, design tokens
 10. [Infrastructure](./features/infrastructure.md) — Cron, build, deploy, testing
+
+## In progress
+
+- [E2EE Local Chat](./features/e2ee-local-chat.md) — End-to-end encrypted messaging, IndexedDB vault, single-device session ([implementation plan](../apps/e2e/PLAN.md))
 
 ## Future plans (index)
 

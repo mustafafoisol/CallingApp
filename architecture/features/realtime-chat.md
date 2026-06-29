@@ -2,6 +2,8 @@
 
 1-on-1 text and image messaging between accepted friends with live delivery via Supabase Realtime.
 
+> **E2EE migration in progress:** Target delivery uses `message_envelopes` (ciphertext relay) with decrypted history in IndexedDB — see [e2ee-local-chat.md](./e2ee-local-chat.md). This document describes the **current production UI**, which still reads/writes plaintext `messages` until task 05 (UI rewire) lands.
+
 ## User flow
 
 ```mermaid
