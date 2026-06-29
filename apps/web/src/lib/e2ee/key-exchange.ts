@@ -106,7 +106,12 @@ export async function ensureConversationKey(
 
   const peerPubkey = parseBytea(peer.identity_pubkey);
   const pinned = await vault.trusted_pubkeys.get(peerUserId);
-  if (!pinned) {
+  if (
+    !pinned ||
+    pinned.keyGeneration !== generation ||
+    pinned.identityPubkey.length !== peerPubkey.length ||
+    !pinned.identityPubkey.every((byte, index) => byte === peerPubkey[index])
+  ) {
     await vault.trusted_pubkeys.put({
       userId: peerUserId,
       identityPubkey: peerPubkey,

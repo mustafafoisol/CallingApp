@@ -40,6 +40,7 @@ import { LinkPreviewDialog } from "@/components/chat/link-preview-dialog";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { hideMessage } from "@/lib/chat/hide-message";
 import { removeMessage } from "@/lib/chat/remove-message";
+import { subscribeToConversationEnvelopes } from "@/lib/chat/envelope-realtime";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
 import { cn } from "@/lib/utils";
 import { useCall } from "@/contexts/call-context";
@@ -175,66 +176,57 @@ export function ChatView({
     }
   }, [messages]);
 
+  const handleEnvelope = useCallback(
+    async (row: MessageEnvelopeRow) => {
+      if (row.recipient_id !== currentUserId) return;
+      const supabase = createClient();
+      const vault = await openVault(currentUserId);
+      const result = await processEnvelope(supabase, vault, row);
+      if (result.skipped) return;
+      reconcileMessage({
+        id: result.messageId,
+        sender_id: row.sender_id,
+        body: result.body,
+        type: row.type,
+        created_at: result.createdAt,
+      });
+    },
+    [currentUserId, reconcileMessage],
+  );
+
+  const pollEnvelopes = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("message_envelopes")
+      .select(
+        "id, conversation_id, sender_id, recipient_id, type, ciphertext, nonce, sender_key_generation, attachment_id, created_at, expires_at",
+      )
+      .eq("recipient_id", currentUserId)
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("[chat] envelope poll failed", error);
+      return;
+    }
+    for (const row of (data ?? []) as MessageEnvelopeRow[]) {
+      await handleEnvelope(row);
+    }
+  }, [conversationId, currentUserId, handleEnvelope]);
+
   useEffect(() => {
     const supabase = createClient();
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    let cancelled = false;
-
-    async function subscribe() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (cancelled) return;
-
-      if (!session) {
-        setRealtimeStatus("no-session");
-        return;
-      }
-
-      channel = supabase
-        .channel(`envelopes:${conversationId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "message_envelopes",
-            filter: `conversation_id=eq.${conversationId}`,
-          },
-          (payload) => {
-            void (async () => {
-              const row = payload.new as MessageEnvelopeRow;
-              if (row.recipient_id !== currentUserId) return;
-              const vault = await openVault(currentUserId);
-              const result = await processEnvelope(supabase, vault, row);
-              if (result.skipped) return;
-              reconcileMessage({
-                id: result.messageId,
-                sender_id: row.sender_id,
-                body: result.body,
-                type: row.type,
-                created_at: result.createdAt,
-              });
-            })().catch((err) => console.error("[chat] envelope receive failed", err));
-          },
-        )
-        .subscribe((status, err) => {
-          if (cancelled) return;
-          setRealtimeStatus(status);
-          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            console.error("[chat] realtime failed", status, err);
-          }
-        });
-    }
-
-    void subscribe();
-
-    return () => {
-      cancelled = true;
-      if (channel) void supabase.removeChannel(channel);
-    };
-  }, [conversationId, currentUserId, reconcileMessage]);
+    return subscribeToConversationEnvelopes(supabase, {
+      conversationId,
+      recipientId: currentUserId,
+      onEnvelope: (row) => {
+        void handleEnvelope(row).catch((err) =>
+          console.error("[chat] envelope receive failed", err),
+        );
+      },
+      onStatus: setRealtimeStatus,
+      poll: pollEnvelopes,
+    });
+  }, [conversationId, currentUserId, handleEnvelope, pollEnvelopes]);
 
   async function loadOlderMessages() {
     if (loadingOlder || !hasMore || messages.length === 0) return;
