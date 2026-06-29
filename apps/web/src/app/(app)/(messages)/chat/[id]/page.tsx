@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { loadHiddenMessageIds } from "@/lib/chat/message-hides";
 import { getAuthUser } from "@/lib/supabase/get-user";
 import { createClient } from "@/lib/supabase/server";
 import { ChatView } from "./chat-view";
@@ -34,36 +33,21 @@ export default async function ChatPage({
       ? conversation.user_b_id
       : conversation.user_a_id;
 
-  const [{ data: friend }, { data: friendship }, { data: recentMessages }, hiddenIds] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, display_name, public_id, avatar_url")
-        .eq("id", friendId)
-        .single(),
-      supabase
-        .from("friendships")
-        .select("id, status")
-        .or(
-          `and(requester_id.eq.${user.id},addressee_id.eq.${friendId}),and(requester_id.eq.${friendId},addressee_id.eq.${user.id})`,
-        )
-        .eq("status", "accepted")
-        .maybeSingle(),
-      supabase
-        .from("messages")
-        .select(
-          "id, sender_id, body, type, attachment_url, created_at, removed_at",
-        )
-        .eq("conversation_id", id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      loadHiddenMessageIds(supabase, user.id, id),
-    ]);
-
-  const messages = (recentMessages ?? [])
-    .filter((m) => !hiddenIds.has(m.id))
-    .slice()
-    .reverse();
+  const [{ data: friend }, { data: friendship }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, display_name, public_id, avatar_url")
+      .eq("id", friendId)
+      .single(),
+    supabase
+      .from("friendships")
+      .select("id, status")
+      .or(
+        `and(requester_id.eq.${user.id},addressee_id.eq.${friendId}),and(requester_id.eq.${friendId},addressee_id.eq.${user.id})`,
+      )
+      .eq("status", "accepted")
+      .maybeSingle(),
+  ]);
 
   return (
     <ChatView
@@ -74,8 +58,6 @@ export default async function ChatPage({
       friendName={friend?.display_name ?? "Friend"}
       canMessage={!!friendship}
       friendAvatarUrl={friend?.avatar_url ?? null}
-      initialMessages={messages}
-      initialHiddenMessageIds={[...hiddenIds]}
     />
   );
 }
