@@ -13,6 +13,7 @@ Phased roadmap for extending CallingApp. Each phase has its own folder with deta
 | 2.5 | Group chat (≤5 members) | Planned | [phase2/group-chat.md](./phase2/group-chat.md) |
 | 3 | Platform & reach (PWA, push) | Planned | [phase3/README.md](./phase3/README.md) |
 | 4 | Voice & video calling | Deferred | [phase4/README.md](./phase4/README.md) |
+| — | **Voice calling (active)** | `feature-call` branch | [feature-call/README.md](./feature-call/README.md) |
 
 ```mermaid
 flowchart LR
