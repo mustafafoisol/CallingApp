@@ -14,6 +14,7 @@ Each document describes one shipped capability: user flows, implementation map, 
 | 8 | Shared Core Package | Shipped | [shared-core.md](./shared-core.md) |
 | 9 | UI Shell | Shipped | [ui-shell.md](./ui-shell.md) |
 | 10 | Infrastructure | Partial (PWA incomplete) | [infrastructure.md](./infrastructure.md) |
+| 11 | Voice Calling | Shipped | [voice-calling.md](./voice-calling.md) |
 
 ## In progress
 

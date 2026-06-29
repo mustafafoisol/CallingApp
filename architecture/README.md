@@ -76,7 +76,7 @@ CallingApp/
 | `/onboarding` | Auth-gated | [Onboarding & Profiles](./features/onboarding-and-profiles.md) |
 | `/home` | Protected | [Contacts Home](./features/contacts-home.md) |
 | `/friends/add` | Protected | [Friends](./features/friends.md) |
-| `/chat/[id]` | Protected | [Realtime Chat](./features/realtime-chat.md) |
+| `/chat/[id]` | Protected | [Realtime Chat](./features/realtime-chat.md) · [Voice Calling](./features/voice-calling.md) |
 | `/settings` | Protected | [Settings](./features/settings.md) |
 
 ## API map
@@ -89,6 +89,7 @@ CallingApp/
 | `/api/friends/request` | POST | [Friends](./features/friends.md) |
 | `/api/friends/respond` | POST | [Friends](./features/friends.md) |
 | `/api/cron/keep-alive` | GET | [Infrastructure](./features/infrastructure.md) |
+| `/api/turn` | GET | [Voice Calling](./features/voice-calling.md) |
 
 ## Environment variables
 
@@ -98,8 +99,10 @@ CallingApp/
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client + server | Yes | Public anon key (RLS-enforced) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server only | For cron | Bypass RLS for keep-alive ping |
 | `CRON_SECRET` | Server only | Production | Protects `/api/cron/keep-alive` |
+| `METERED_TURN_API_KEY` | Server only | Voice calls (prod) | TURN credentials for `/api/turn` |
+| `METERED_TURN_APP_NAME` | Server only | Voice calls (prod) | Metered app subdomain |
 
-See `.env.example` at repo root.
+See `.env.example` at repo root. Full TURN setup: [Infrastructure](./features/infrastructure.md).
 
 ## Completed features (index)
 
@@ -113,6 +116,7 @@ See `.env.example` at repo root.
 8. [Shared Core Package](./features/shared-core.md) — `@calling-app/core` utilities
 9. [UI Shell](./features/ui-shell.md) — Layout, navigation, design tokens
 10. [Infrastructure](./features/infrastructure.md) — Cron, build, deploy, testing
+11. [Voice Calling](./features/voice-calling.md) — 1-on-1 WebRTC voice between friends
 
 ## In progress
 
@@ -125,7 +129,7 @@ See `.env.example` at repo root.
 | 1 (active) | End-to-end chat + good UI | [plans/phase1/](./plans/phase1/) |
 | 2 | Social & identity | [plans/phase2/](./plans/phase2/) |
 | 3 | PWA + notifications | [plans/phase3/](./plans/phase3/) |
-| 4 | Voice/video (deferred) | [plans/phase4/](./plans/phase4/) |
+| 4 | Voice/video (voice v1 shipped; video deferred) | [plans/phase4/](./plans/phase4/) |
 
 See [`plans/README.md`](./plans/README.md) for the full roadmap.
 
