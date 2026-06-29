@@ -8,13 +8,13 @@ Full-screen (or modal) call UI for active and outgoing calls.
 
 ## Checklist
 
-- [ ] `CallOverlay` component — states: `outgoing`, `connected`, `ended`
-- [ ] Show friend name + avatar (reuse `ChatAvatar`)
-- [ ] Elapsed timer when connected
-- [ ] Phone icon button in `ChatHeader` → starts outgoing call
-- [ ] Disable call button when `!canMessage` or mic unavailable
-- [ ] Match existing chat design tokens (`--chat-surface`, coral accent)
-- [ ] `aria-live` region for status ("Ringing…", "Connected")
+- [x] `CallOverlay` component — states: `outgoing`, `connected`, `ended`
+- [x] Show friend name + avatar (reuse `ChatAvatar`)
+- [x] Elapsed timer when connected
+- [x] Phone icon button in `ChatHeader` → starts outgoing call
+- [x] Disable call button when `!canMessage` or mic unavailable
+- [x] Match existing chat design tokens (`--chat-surface`, coral accent)
+- [x] `aria-live` region for status ("Ringing…", "Connected")
 
 ## States UI
 
@@ -26,9 +26,9 @@ Full-screen (or modal) call UI for active and outgoing calls.
 
 ## Verify
 
-- [ ] Tap phone in chat → overlay appears
-- [ ] Cancel while ringing → call `ended` or `rejected`, overlay closes
-- [ ] Connected state shows timer incrementing
+- [x] Tap phone in chat → overlay appears
+- [x] Cancel while ringing → call `ended` or `rejected`, overlay closes
+- [x] Connected state shows timer incrementing
 
 ## Files
 

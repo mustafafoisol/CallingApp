@@ -1,85 +1,101 @@
-# Plan: Voice & Video Calling (Deferred)
+# Plan: Voice & Video Calling
 
-Re-introduce 1-on-1 voice and video calls via WebRTC. **Not in current scope** — chat-only product decision.
+Re-introduce 1-on-1 voice and video calls via WebRTC.
+
+## Status
+
+**Voice v1 shipped** via the [feature-call plan](../feature-call/README.md) (tasks 00–12, June 2025).
+
+- **Shipped:** Voice-only calls, signaling, TURN, in-app incoming UI, mute/hang up
+- **Doc:** [voice-calling.md](../../features/voice-calling.md)
+- **Manual tests:** [feature-tests/call/manual-testing.md](../../feature-tests/call/manual-testing.md)
+- **Deferred:** Video (camera preview, remote video tile), Web Push for background incoming calls
 
 ## Phase
 
-**Phase 4** — Large effort; implement only if product direction changes.
+**Phase 4** — Voice complete; video remains optional follow-up.
 
 ## Background
 
-CallingApp previously shipped WebRTC voice/video with:
-- P2P peer connections
-- Supabase Realtime signaling (broadcast + Postgres SDP fallback)
-- TURN via Metered.ca optional API
-- Incoming call listener, call overlay UI
+CallingApp previously shipped WebRTC voice/video, then removed it to focus on chat. Voice was restored in 2025 via `20250629000001_restore_calls.sql` and the feature-call task series.
 
-This was removed to focus on chat. Database artifacts may still exist — see [database-cleanup.md](../phase1/database-cleanup.md).
+## Prerequisites (voice — done)
 
-## Prerequisites
+1. ~~Restore `calls` table schema~~ — migration `20250629000001_restore_calls.sql`
+2. ~~TURN infrastructure~~ — `/api/turn` + Metered.ca (STUN fallback for dev)
+3. HTTPS required (WebRTC mandate)
+4. Accepted friendship gate (same as chat)
 
-Before re-adding calls:
+**Still needed for full calling UX:**
 
-1. Decide if calls coexist with chat-only positioning
-2. Restore or recreate `calls` table schema
-3. TURN infrastructure (`METERED_TURN_API_KEY` or self-hosted coturn)
-4. [notifications.md](../phase3/notifications.md) — critical for incoming call UX when app backgrounded
-5. HTTPS required (WebRTC mandate)
+- [notifications.md](../phase3/notifications.md) — background incoming call alerts
 
-## Proposed architecture (if revived)
+## Architecture (shipped — voice v1)
 
 ```mermaid
 sequenceDiagram
   participant Caller
-  participant Signaling as Supabase Realtime
+  participant Signaling as Supabase calls + Realtime
   participant Callee
   participant TURN as TURN server
 
-  Caller->>Signaling: INSERT calls + broadcast ring
-  Signaling->>Callee: Incoming call event
-  Callee->>Signaling: accept
-  Caller->>Signaling: offer SDP
-  Signaling->>Callee: offer
-  Callee->>Signaling: answer SDP
+  Caller->>Signaling: INSERT calls status=ringing
+  Signaling->>Callee: Realtime INSERT
+  Callee->>Signaling: UPDATE status=accepted
+  Caller->>Signaling: WRITE offer_sdp
+  Signaling->>Callee: Realtime UPDATE offer_sdp
+  Callee->>Signaling: WRITE answer_sdp
   Caller->>TURN: ICE negotiation
   Callee->>TURN: ICE negotiation
-  Caller<<->>Callee: Media P2P or via TURN
+  Caller<<->>Callee: SRTP audio P2P or via TURN
 ```
 
-## Components to rebuild
+See [voice-calling.md](../../features/voice-calling.md) for file map and component architecture.
 
-| Layer | Files (formerly) |
-|-------|------------------|
-| UI | `call-overlay.tsx`, `video-tile.tsx`, `incoming-call-listener.tsx` |
-| WebRTC | `peer-session.ts`, `peer-connection.ts`, `signaling.ts`, `sdp.ts` |
-| Core | `call-state-machine.ts`, signaling types |
+## Components (current)
+
+| Layer | Files |
+|-------|-------|
+| UI | `call-overlay.tsx`, `incoming-call-listener.tsx`, `incoming-call-banner.tsx`, `call-controls.tsx` |
+| Context | `call-context.tsx` (`CallProvider`) |
+| WebRTC | `call-session.ts`, `peer-connection.ts`, `media.ts`, `signaling.ts` |
+| Core | `packages/core/src/call/state-machine.ts`, call types |
 | API | `/api/turn` |
 | DB | `calls` table, `offer_sdp`, `answer_sdp`, realtime publication |
 
 ## Key technical decisions
 
-| Decision | Recommendation |
-|----------|----------------|
-| Signaling transport | Supabase Realtime broadcast for events; Postgres for large SDP |
-| ICE strategy | Full SDP gathering (no trickle) for simplicity |
-| Video roles | Caller sends video; callee receive-only (prior design) |
-| Call states | `ringing → accepted → ended` (+ `missed`, `rejected`) |
+| Decision | Choice (v1) |
+|----------|-------------|
+| Signaling transport | Postgres `calls` + Realtime `postgres_changes` |
+| ICE strategy | Full SDP gathering (no trickle) |
+| Call types | Voice only |
+| Call states | `ringing → accepted → ended` (+ `missed`, `rejected`, `busy`) |
+| Orchestration | `CallProvider` for app state; `CallSession` for WebRTC |
 
-## Acceptance criteria (if implemented)
+## Acceptance criteria
 
-- [ ] Voice call between two accepted friends
+### Voice v1 (shipped)
+
+- [x] Voice call between two accepted friends
+- [x] Outgoing + incoming + in-call UI
+- [x] Mute and hang up
+- [x] Calls work across NAT (TURN verified)
+- [x] Call history row in `calls` table
+- [x] Feature doc + manual test guide
+
+### Video (future M10)
+
 - [ ] Video call with local preview (caller) and remote video
-- [ ] Incoming call UI when callee is in app
-- [ ] Mute, camera toggle, hang up
-- [ ] Calls work across NAT via TURN
-- [ ] Call history row in `calls` table
+- [ ] Camera toggle during call
+- [ ] Callee send-video path
 
 ## Dependencies
 
-- [database-cleanup.md](../phase1/database-cleanup.md) — **do not run** if calls are planned soon
-- [notifications.md](../phase3/notifications.md)
-- TURN provider account
+- [feature-call plan](../feature-call/README.md) — implementation tasks (voice v1 complete)
+- [notifications.md](../phase3/notifications.md) — incoming call when app backgrounded
+- TURN provider account (Metered.ca)
 
-## Estimated effort
+## Estimated effort (remaining)
 
-**2–3 weeks** (full re-implementation with tests)
+**Video M10:** ~1 week · **Push notifications for calls:** depends on Phase 3 PWA work

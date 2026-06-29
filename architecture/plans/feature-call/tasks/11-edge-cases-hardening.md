@@ -8,15 +8,15 @@ Production-safe behavior for failure and concurrency paths.
 
 ## Checklist
 
-- [ ] **Ring timeout:** 45s no answer → callee `missed`, caller UI "No answer"
-- [ ] **Reject:** callee decline → caller "Declined"
-- [ ] **Busy:** callee already in call → new INSERT gets `busy` or reject second ring
-- [ ] **Caller cancel** while ringing → `ended` or `rejected`, callee banner dismisses
-- [ ] **Session replaced** mid-call → hang up + close overlay (`SessionGuard` integration)
-- [ ] **Tab close** — `beforeunload` attempts `endCall` (best effort)
+- [x] **Ring timeout:** 45s no answer → callee `missed`, caller UI "No answer"
+- [x] **Reject:** callee decline → caller "Declined"
+- [x] **Busy:** callee already in call → new INSERT gets `busy` or reject second ring
+- [x] **Caller cancel** while ringing → `ended` or `rejected`, callee banner dismisses
+- [x] **Session replaced** mid-call → hang up + close overlay (`SessionGuard` integration)
+- [x] **Tab close** — `beforeunload` attempts `endCall` (best effort)
 - [ ] **Mic lost** — show warning if track ends
-- [ ] **Realtime disconnect** during call — banner + auto end after grace period
-- [ ] Prevent double-accept race (idempotent updates)
+- [x] **Realtime disconnect** during call — banner + auto end after grace period
+- [x] Prevent double-accept race (idempotent updates)
 
 ## Verify (manual matrix)
 
@@ -33,5 +33,5 @@ Production-safe behavior for failure and concurrency paths.
 | File | Action |
 |------|--------|
 | `apps/web/src/lib/call/timeouts.ts` | Create |
-| `apps/web/src/lib/call/incoming-call-listener.tsx` | Harden |
+| `apps/web/src/contexts/call-context.tsx` | Harden (Realtime + timeouts) |
 | `apps/web/src/components/session/session-guard.tsx` | End active call on kick |

@@ -8,13 +8,13 @@ Global listener: any page shows incoming ring UI when callee receives a call.
 
 ## Checklist
 
-- [ ] `IncomingCallListener` in `(app)` layout (alongside `SessionGuard`)
-- [ ] Subscribe to `calls` INSERT where `callee_id = me` and `status=ringing`
-- [ ] `IncomingCallBanner` — Accept / Decline buttons
-- [ ] Accept → `CallSession.startAsCallee` + show `CallOverlay`
-- [ ] Decline → `rejectCall`
-- [ ] Only one incoming UI at a time
-- [ ] Ignore calls from self / stale rows
+- [x] `IncomingCallListener` in `(app)` layout (alongside `SessionGuard`)
+- [x] Subscribe to `calls` INSERT where `callee_id = me` and `status=ringing`
+- [x] `IncomingCallBanner` — Accept / Decline buttons
+- [x] Accept → `CallSession.startAsCallee` + show `CallOverlay`
+- [x] Decline → `rejectCall`
+- [x] Only one incoming UI at a time
+- [x] Ignore calls from self / stale rows
 
 ## Realtime filter
 
@@ -28,9 +28,9 @@ Post-handler: verify `status === 'ringing'`.
 
 ## Verify
 
-- [ ] Callee on `/home` → caller rings from chat → banner appears
-- [ ] Accept → both hear audio, overlay on callee
-- [ ] Decline → caller sees rejected (task 11 polishes message)
+- [x] Callee on `/home` → caller rings from chat → banner appears
+- [x] Accept → both hear audio, overlay on callee
+- [x] Decline → caller sees rejected (task 11 polishes message)
 
 ## Files
 

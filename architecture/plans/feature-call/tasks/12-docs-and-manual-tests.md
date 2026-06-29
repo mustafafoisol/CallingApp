@@ -8,12 +8,12 @@ Ship documentation and a repeatable manual test guide.
 
 ## Checklist
 
-- [ ] `architecture/features/voice-calling.md` — file map, flows, APIs, schema
-- [ ] `architecture/feature-tests/call/manual-testing.md` — step-by-step two-browser tests
-- [ ] Update `architecture/README.md` route/feature index
-- [ ] Update `architecture/plans/phase4/voice-video-calling.md` — link to feature-call plan, note voice shipped
-- [ ] Mark all tasks `[x]` in `tasks/README.md`
-- [ ] Mark milestone exit criteria in [../README.md](../README.md)
+- [x] `architecture/features/voice-calling.md` — file map, flows, APIs, schema
+- [x] `architecture/feature-tests/call/manual-testing.md` — step-by-step two-browser tests
+- [x] Update `architecture/README.md` route/feature index
+- [x] Update `architecture/plans/phase4/voice-video-calling.md` — link to feature-call plan, note voice shipped
+- [x] Mark all tasks `[x]` in `tasks/README.md`
+- [x] Mark milestone exit criteria in [../README.md](../README.md)
 
 ## Manual test script (minimum)
 
@@ -26,9 +26,9 @@ Ship documentation and a repeatable manual test guide.
 
 ## Verify
 
-- [ ] New developer can follow manual-testing.md without asking questions
-- [ ] `pnpm test` + `pnpm build` pass
-- [ ] PR description lists migrations + `METERED_TURN_API_KEY`
+- [x] New developer can follow manual-testing.md without asking questions
+- [x] `pnpm test` + `pnpm build` pass
+- [x] PR description lists migrations + `METERED_TURN_API_KEY`
 
 ## Files
 

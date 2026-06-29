@@ -1,7 +1,7 @@
 # Phase 4 — Voice & Video Calling
 
-**Status:** Deferred  
-**Goal:** Re-introduce 1-on-1 voice and video calls if product direction changes.
+**Status:** Voice v1 shipped; video deferred  
+**Goal:** Voice calling live; video optional follow-up.
 
 ## Documents
 

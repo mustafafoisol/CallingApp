@@ -8,12 +8,12 @@ Single `CallSession` class that wires signaling + WebRTC for caller and callee r
 
 ## Checklist
 
-- [ ] `CallSession.startAsCaller(callId)` — create offer → write offer_sdp → wait answer → set remote
-- [ ] `CallSession.startAsCallee(callId, offerSdp)` — set remote → create answer → write answer_sdp
-- [ ] `CallSession.hangUp()` — endCall + closePeerConnection
-- [ ] `CallSession.mute()` / `unmute()` — disable audio track
-- [ ] Events: `onConnected`, `onEnded`, `onError`, `onStateChange`
-- [ ] Idempotent hang up (safe if already ended)
+- [x] `CallSession.startAsCaller(callId)` — create offer → write offer_sdp → wait answer → set remote
+- [x] `CallSession.startAsCallee(callId, offerSdp)` — set remote → create answer → write answer_sdp
+- [x] `CallSession.hangUp()` — endCall + closePeerConnection
+- [x] `CallSession.mute()` / `unmute()` — disable audio track
+- [x] Events: `onConnected`, `onEnded`, `onError`, `onStateChange`
+- [x] Idempotent hang up (safe if already ended)
 
 ## Caller sequence
 
@@ -31,9 +31,9 @@ acceptCall → read offer_sdp → setRemoteDescription → createAnswer
 
 ## Verify
 
-- [ ] Two browsers on **different networks** (hotspot test) — audio works
-- [ ] Hang up on either side ends session for both (via signaling)
-- [ ] Console shows `iceConnectionState: connected` or `completed`
+- [x] Two browsers on **different networks** (hotspot test) — audio works
+- [x] Hang up on either side ends session for both (via signaling)
+- [x] Console shows `iceConnectionState: connected` or `completed`
 
 ## Files
 

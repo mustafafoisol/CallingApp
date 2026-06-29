@@ -10,13 +10,13 @@ Work top-to-bottom. Check `[x]` when task **Verify** section passes.
 | 03 | [03-turn-credentials-api](./03-turn-credentials-api.md) | M3 | 00 | 2h | [x] |
 | 04 | [04-signaling-layer](./04-signaling-layer.md) | M3 | 01, 02 | 4h | [x] |
 | 05 | [05-webrtc-audio-session](./05-webrtc-audio-session.md) | M4 | 03, 04 | 5h | [x] |
-| 06 | [06-call-session-orchestrator](./06-call-session-orchestrator.md) | M4 | 05 | 4h | [ ] |
-| 07 | [07-outgoing-call-flow](./07-outgoing-call-flow.md) | M5 | 06 | 3h | [ ] |
-| 08 | [08-call-overlay-ui](./08-call-overlay-ui.md) | M5 | 07 | 4h | [ ] |
-| 09 | [09-incoming-call-listener](./09-incoming-call-listener.md) | M6 | 04, 08 | 4h | [ ] |
-| 10 | [10-in-call-controls](./10-in-call-controls.md) | M7 | 08, 09 | 3h | [ ] |
-| 11 | [11-edge-cases-hardening](./11-edge-cases-hardening.md) | M8 | 10 | 4h | [ ] |
-| 12 | [12-docs-and-manual-tests](./12-docs-and-manual-tests.md) | M9 | 11 | 2h | [ ] |
+| 06 | [06-call-session-orchestrator](./06-call-session-orchestrator.md) | M4 | 05 | 4h | [x] |
+| 07 | [07-outgoing-call-flow](./07-outgoing-call-flow.md) | M5 | 06 | 3h | [x] |
+| 08 | [08-call-overlay-ui](./08-call-overlay-ui.md) | M5 | 07 | 4h | [x] |
+| 09 | [09-incoming-call-listener](./09-incoming-call-listener.md) | M6 | 04, 08 | 4h | [x] |
+| 10 | [10-in-call-controls](./10-in-call-controls.md) | M7 | 08, 09 | 3h | [x] |
+| 11 | [11-edge-cases-hardening](./11-edge-cases-hardening.md) | M8 | 10 | 4h | [x] |
+| 12 | [12-docs-and-manual-tests](./12-docs-and-manual-tests.md) | M9 | 11 | 2h | [x] |
 
 ## Milestone checkpoints
 
@@ -32,38 +32,38 @@ Work top-to-bottom. Check `[x]` when task **Verify** section passes.
 - [x] `pnpm test` passes in `packages/core`
 
 ### M3 — Signaling
-- [ ] Tasks 03–04 complete
-- [ ] Callee sees ring event without WebRTC
+- [x] Tasks 03–04 complete
+- [x] Callee sees ring event without WebRTC
 
 ### M4 — WebRTC audio
-- [ ] Tasks 05–06 complete
-- [ ] Two tabs hear each other
+- [x] Tasks 05–06 complete
+- [x] Two tabs hear each other
 
 ### M5 — Outgoing UI
-- [ ] Tasks 07–08 complete
-- [ ] Call from chat header works (caller side)
+- [x] Tasks 07–08 complete
+- [x] Call from chat header works (caller side)
 
 ### M6 — Incoming UI
-- [ ] Task 09 complete
-- [ ] Callee can answer from any page
+- [x] Task 09 complete
+- [x] Callee can answer from any page
 
 ### M7 — In-call UX
-- [ ] Task 10 complete
-- [ ] Mute + hang up both sides
+- [x] Task 10 complete
+- [x] Mute + hang up both sides
 
 ### M8 — Hardening
-- [ ] Task 11 complete
-- [ ] Missed / reject / timeout manual scenarios pass
+- [x] Task 11 complete
+- [x] Missed / reject / timeout manual scenarios pass
 
 ### M9 — Ship
-- [ ] Task 12 complete
-- [ ] Feature doc + manual test guide in `architecture/`
+- [x] Task 12 complete
+- [x] Feature doc + manual test guide in `architecture/`
 
 ## Global exit criteria (v1 voice)
 
-- [ ] Voice call between two accepted friends
-- [ ] Outgoing + incoming + in-call UI
-- [ ] Mute and hang up
-- [ ] Calls work across NAT (TURN verified)
-- [ ] `pnpm test` and `pnpm build` pass
-- [ ] No regressions to E2EE chat
+- [x] Voice call between two accepted friends
+- [x] Outgoing + incoming + in-call UI
+- [x] Mute and hang up
+- [x] Calls work across NAT (TURN verified)
+- [x] `pnpm test` and `pnpm build` pass
+- [x] No regressions to E2EE chat

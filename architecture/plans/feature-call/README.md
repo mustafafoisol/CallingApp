@@ -65,6 +65,8 @@ flowchart LR
 
 **Future M10 (video):** camera preview, remote video tile, callee send-video — separate task set after M9.
 
+**Shipped (M0–M9):** See [voice-calling.md](../../features/voice-calling.md) and [manual-testing.md](../../feature-tests/call/manual-testing.md).
+
 ---
 
 ## Architecture (v1)
@@ -104,8 +106,8 @@ sequenceDiagram
 |--------------|--------|-------|
 | Accepted friendship + conversation | Shipped | Reuse chat participant checks |
 | HTTPS (local + prod) | Required | WebRTC `getUserMedia` |
-| TURN provider | **Setup needed** | `METERED_TURN_API_KEY` or self-hosted coturn |
-| `calls` table on remote DB | **Dropped** | Task 01 restores it |
+| TURN provider | Shipped | `METERED_TURN_API_KEY` + `METERED_TURN_APP_NAME` via `/api/turn` |
+| `calls` table on remote DB | Shipped | `20250629000001_restore_calls.sql` |
 
 **Deferred to later:** Web Push for background incoming calls ([phase3/notifications.md](../phase3/notifications.md)).
 
