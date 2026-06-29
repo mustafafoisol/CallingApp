@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { generateUniquePublicId } from "@/lib/profile";
+import { persistOnboardingProfile } from "@/lib/profile/persist-onboarding";
 import {
   DEVICE_ID_COOKIE,
   SESSION_COOKIE_OPTIONS,
@@ -40,30 +41,26 @@ export async function POST(request: Request) {
     return Boolean(data);
   });
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ display_name: displayName, public_id: publicId })
-    .eq("id", user.id);
+  const saved = await persistOnboardingProfile(
+    supabase,
+    user.id,
+    displayName,
+    publicId,
+  );
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if ("error" in saved) {
+    return NextResponse.json({ error: saved.error }, { status: 500 });
   }
-
-  const { data: sessionProfile } = await supabase
-    .from("profiles")
-    .select("session_version, active_device_id")
-    .eq("id", user.id)
-    .single();
 
   const cookieStore = await cookies();
   const cookieSv = cookieStore.get(SESSION_VERSION_COOKIE)?.value;
   const cookieDid = cookieStore.get(SESSION_DEVICE_COOKIE)?.value;
   const deviceHint = cookieStore.get(DEVICE_ID_COOKIE)?.value;
   const deviceId =
-    sessionProfile?.active_device_id ?? deviceHint ?? crypto.randomUUID();
-  let sessionVersion = sessionProfile?.session_version ?? 1;
+    saved.data.active_device_id ?? deviceHint ?? crypto.randomUUID();
+  const sessionVersion = saved.data.session_version ?? 1;
 
-  if (!sessionProfile?.active_device_id) {
+  if (!saved.data.active_device_id) {
     const { error: bindError } = await supabase
       .from("profiles")
       .update({
@@ -78,7 +75,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const response = NextResponse.json({ publicId });
+  const response = NextResponse.json({ publicId: saved.data.public_id });
   if (
     !sessionCookiesMatch(cookieSv, cookieDid, {
       session_version: sessionVersion,
