@@ -18,22 +18,39 @@ export function OnboardingForm() {
     setLoading(true);
     setError(null);
 
-    const res = await fetch("/api/profile/onboarding", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ displayName }),
-    });
+    try {
+      const res = await fetch("/api/profile/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      });
 
-    const data = await res.json();
-    setLoading(false);
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        publicId?: string;
+      } | null;
 
-    if (!res.ok) {
-      setError(data.error ?? "Failed to complete onboarding");
-      return;
+      if (!res.ok) {
+        if (data?.error === "session_replaced") {
+          router.replace("/login?reason=session_replaced");
+          return;
+        }
+        setError(data?.error ?? "Failed to complete onboarding");
+        return;
+      }
+
+      if (!data?.publicId) {
+        setError("Failed to complete onboarding");
+        return;
+      }
+
+      setPublicId(data.publicId);
+      router.refresh();
+    } catch {
+      setError("Failed to complete onboarding. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    setPublicId(data.publicId);
-    router.refresh();
   }
 
   if (publicId) {

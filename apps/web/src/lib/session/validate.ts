@@ -42,6 +42,20 @@ export async function loadProfileSession(
   return data;
 }
 
+export async function sessionReplacedJson(
+  supabase: SupabaseClient,
+): Promise<NextResponse> {
+  await supabase.auth.signOut();
+  const response = NextResponse.json(
+    { error: "session_replaced" },
+    { status: 401 },
+  );
+  clearSessionCookies((name, value, options) =>
+    response.cookies.set(name, value, options),
+  );
+  return response;
+}
+
 export async function sessionReplacedRedirect(
   request: NextRequest,
   supabase: SupabaseClient,

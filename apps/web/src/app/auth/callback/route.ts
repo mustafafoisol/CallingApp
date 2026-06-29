@@ -37,13 +37,11 @@ export async function GET(request: NextRequest) {
       ? deviceHint
       : request.cookies.get(DEVICE_ID_COOKIE)?.value) ?? crypto.randomUUID();
   const admin = createAdminClient();
-  if (!admin) {
-    return NextResponse.redirect(`${origin}/login?error=auth`);
-  }
+  const db = admin ?? supabase;
 
-  const { data: profile } = await admin
+  const { data: profile } = await db
     .from("profiles")
-    .select("session_version, active_device_id")
+    .select("session_version, active_device_id, public_id, display_name")
     .eq("id", user.id)
     .single();
 
@@ -53,7 +51,7 @@ export async function GET(request: NextRequest) {
     : (profile?.session_version ?? 1);
 
   if (isNewDevice) {
-    const { error: updateError } = await admin
+    const { error: updateError } = await db
       .from("profiles")
       .update({
         session_version: sessionVersion,
@@ -63,18 +61,23 @@ export async function GET(request: NextRequest) {
       .eq("id", user.id);
 
     if (updateError) {
+      await supabase.auth.signOut();
       return NextResponse.redirect(`${origin}/login?error=auth`);
     }
 
-    await admin.auth.admin.signOut(user.id, "others");
+    if (admin) {
+      await admin.auth.admin.signOut(user.id, "others");
+    }
   } else {
-    await admin
+    await db
       .from("profiles")
       .update({ active_session_at: new Date().toISOString() })
       .eq("id", user.id);
   }
 
-  const response = NextResponse.redirect(`${origin}${next}`);
+  const needsOnboarding = !profile?.public_id || !profile?.display_name;
+  const destination = needsOnboarding ? "/onboarding" : next;
+  const response = NextResponse.redirect(`${origin}${destination}`);
   response.cookies.set(
     SESSION_VERSION_COOKIE,
     String(sessionVersion),
