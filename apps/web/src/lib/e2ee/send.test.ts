@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ensureConversationKey } from "./key-exchange";
 import { sendEncryptedText } from "./send";
 
 vi.mock("@calling-app/core", () => ({
@@ -37,6 +38,13 @@ describe("sendEncryptedText", () => {
       body: "hello",
     });
 
+    expect(ensureConversationKey).toHaveBeenCalledWith(
+      vault,
+      supabase,
+      "conv-1",
+      "recipient-1",
+      1,
+    );
     expect(insert).toHaveBeenCalledOnce();
     expect(insert.mock.calls[0]).toHaveLength(1);
     expect(result.envelopeId).toBe("msg-1");

@@ -25,10 +25,17 @@ export async function sendEncryptedText(
   params: SendEncryptedTextParams,
 ): Promise<SendEncryptedTextResult> {
   const { conversationId, recipientId, senderId, messageId, body } = params;
-  const ck = await ensureConversationKey(vault, supabase, conversationId, recipientId);
 
   const identity = await vault.device_identity.get(DEVICE_IDENTITY_KEY);
   if (!identity) throw new Error("Device identity key is missing");
+
+  const ck = await ensureConversationKey(
+    vault,
+    supabase,
+    conversationId,
+    recipientId,
+    identity.keyGeneration,
+  );
 
   const aad = buildAad({
     conversationId,

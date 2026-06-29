@@ -105,10 +105,10 @@ export async function ensureConversationKey(
   supabase: SupabaseClient,
   conversationId: string,
   peerUserId: string,
-  peerKeyGeneration?: number,
+  derivationGeneration?: number,
 ): Promise<CryptoKey> {
   const peer = await fetchPeerCryptoKey(supabase, peerUserId);
-  const generation = peerKeyGeneration ?? peer.key_generation;
+  const generation = derivationGeneration ?? peer.key_generation;
   const peerPubkey = parseBytea(peer.identity_pubkey);
 
   const cached = await loadConversationKey(vault, conversationId, generation);
@@ -116,17 +116,13 @@ export async function ensureConversationKey(
     const pinned = await vault.trusted_pubkeys.get(peerUserId);
     const cacheValid =
       pinned &&
-      pinned.keyGeneration === generation &&
-      peer.key_generation === generation &&
+      pinned.keyGeneration === peer.key_generation &&
       pubkeysEqual(pinned.identityPubkey, peerPubkey);
 
     if (cacheValid) return cached;
     await invalidateConversationKey(vault, conversationId, generation);
   }
 
-  if (peer.key_generation !== generation) {
-    throw new Error(`Peer pubkey unavailable for key generation ${generation}`);
-  }
   const pinned = await vault.trusted_pubkeys.get(peerUserId);
   if (
     !pinned ||
