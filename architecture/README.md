@@ -21,12 +21,16 @@ flowchart TB
     Middleware[Auth middleware]
     API[API route handlers]
     Realtime[Supabase Realtime client]
+    Vault[(IndexedDB vault)]
+    E2EE[E2EE layer — packages/core crypto]
   end
 
   subgraph supabase [Supabase]
     Auth[Auth — Google OAuth]
     PG[(Postgres + RLS)]
     RT[Realtime publication]
+    Pubkeys[user_crypto_keys — IK_pub directory]
+    Envelopes[message_envelopes — ciphertext relay]
   end
 
   subgraph deploy [Deployment]
@@ -37,12 +41,48 @@ flowchart TB
   Pages --> Middleware
   Pages --> API
   Pages --> Realtime
+  Pages --> Vault
+  Pages --> E2EE
+  E2EE --> Vault
   Middleware --> Auth
   API --> PG
   Realtime --> RT
   RT --> PG
+  E2EE --> Pubkeys
+  E2EE --> Envelopes
+  Vault --> Envelopes
   Cron --> API
 ```
+
+### Text message send path (E2EE)
+
+Plaintext never leaves the device for text chat. The server relays short-lived ciphertext envelopes only.
+
+```mermaid
+sequenceDiagram
+  participant UI as ChatView
+  participant Vault as IndexedDB
+  participant KX as ensureConversationKey
+  participant Crypto as AES-GCM encrypt
+  participant DB as message_envelopes
+  participant RT as Realtime
+  participant Peer as Friend device
+
+  UI->>UI: optimistic pending bubble
+  UI->>Vault: openVault
+  UI->>KX: derive CK for peer
+  KX->>DB: fetch peer IK_pub
+  KX->>KX: ECDH + HKDF → CK
+  KX->>Vault: cache CK
+  UI->>Crypto: buildAad + encryptMessage
+  UI->>DB: INSERT ciphertext + nonce
+  UI->>Vault: store plaintext locally
+  DB->>RT: postgres_changes INSERT
+  RT->>Peer: envelope event
+  Peer->>Peer: decrypt → vault → DELETE envelope
+```
+
+See [E2EE Local Chat](./features/e2ee-local-chat.md) for full crypto, receive, and session details.
 
 ## Monorepo layout
 
@@ -106,7 +146,7 @@ See `.env.example` at repo root.
 1. [Authentication](./features/authentication.md) — Google OAuth, session cookies, route guards
 2. [Onboarding & Profiles](./features/onboarding-and-profiles.md) — Display name, public ID generation
 3. [Friends](./features/friends.md) — Lookup, request, accept/reject
-4. [Realtime Chat](./features/realtime-chat.md) — 1-on-1 text messaging (legacy plaintext path)
+4. [Realtime Chat](./features/realtime-chat.md) — 1-on-1 messaging (text via E2EE envelopes; images still legacy)
 5. [Contacts Home](./features/contacts-home.md) — Friend list sorted by recent activity
 6. [Settings](./features/settings.md) — Profile edit, copy ID, logout
 7. [Data Model & Security](./features/data-model-and-security.md) — Schema, RLS, triggers
@@ -116,7 +156,7 @@ See `.env.example` at repo root.
 
 ## In progress
 
-- [E2EE Local Chat](./features/e2ee-local-chat.md) — End-to-end encrypted messaging, IndexedDB vault, single-device session ([implementation plan](../apps/e2e/PLAN.md))
+- [E2EE Local Chat](./features/e2ee-local-chat.md) — Text chat shipped (vault + envelope relay); encrypted images, full session gate, and sidebar vault rewire still pending ([implementation plan](../apps/e2e/PLAN.md))
 
 ## Future plans (index)
 

@@ -4,7 +4,7 @@ End-to-end encrypted 1-on-1 messaging where decrypted history lives only on the 
 
 **Implementation plan:** [apps/e2e/PLAN.md](../../apps/e2e/PLAN.md) · **Task breakdown:** [apps/e2e/tasks/README.md](../../apps/e2e/tasks/README.md) · **End-to-end journey (friend request → first message):** [e2ee-friend-to-message-journey.md](../feature-tests/chat/e2ee-friend-to-message-journey.md)
 
-> **Status (June 2026):** Core crypto, IndexedDB vault, encrypted relay library, and partial single-device session plumbing are shipped. UI rewire, full session enforcement, and encrypted images are still pending. Production chat still reads/writes plaintext `messages` until task 05 lands.
+> **Status (June 2026):** Text chat is wired end-to-end: `ChatView` reads history from IndexedDB, sends via `sendEncryptedText` → `message_envelopes`, and receives via Realtime + `processEnvelope`. Images still use legacy plaintext `messages` + public `chat-media`. Full session cookie gate, encrypted images, and sidebar vault rewire remain pending.
 
 ---
 
@@ -12,11 +12,11 @@ End-to-end encrypted 1-on-1 messaging where decrypted history lives only on the 
 
 | Aspect | v1 target | Today |
 |--------|-----------|-------|
-| Message plaintext | IndexedDB vault on active device | Still in Postgres `messages.body` (legacy path) |
-| Server role | Public key directory + ciphertext relay | Schema + relay libs exist; UI not wired |
-| History source of truth | Active device | Server (until UI rewire) |
-| Images | Client-encrypted, 24h server TTL | Legacy public `chat-media` URLs |
-| Multi-device | Deferred to v2 | Single-device libs partial |
+| Text plaintext | IndexedDB vault on active device | **Shipped** — `vault.messages`; server sees ciphertext only |
+| Server role (text) | Public key directory + ciphertext relay | **Shipped** — `user_crypto_keys` + `message_envelopes` |
+| History source of truth (text) | Active device | **Shipped** — vault pagination in `ChatView` |
+| Images | Client-encrypted, 24h server TTL | Legacy public `chat-media` URLs + `messages` table |
+| Multi-device | Deferred to v2 | Single-device listener + purge partial; cookie gate pending |
 
 ### Product contract (v1)
 
@@ -113,22 +113,91 @@ ciphertext = AES-256-GCM(CK, nonce, plaintext, AAD)
 
 ### Send flow
 
+Text send is implemented in `ChatView.sendText` → `sendEncryptedText` (`apps/web/src/lib/e2ee/send.ts`). The server never receives plaintext.
+
+```mermaid
+flowchart TB
+  subgraph ui [ChatView — sender]
+    Submit[User taps Send]
+    Pending[Append optimistic pending bubble]
+    OpenVault[openVault]
+    DeriveCK[ensureConversationKey]
+    BuildAad[buildAad]
+    Encrypt[encryptMessage — AES-256-GCM]
+    InsertEnv[INSERT message_envelopes]
+    SaveLocal[vault.messages.put plaintext]
+    Confirm[Confirm pending bubble]
+  end
+
+  subgraph keys [Key material]
+    PeerPub[user_crypto_keys — peer IK_pub]
+    IKpriv[device_identity — IK_priv]
+    CKcache[crypto_material — cached CK]
+  end
+
+  subgraph server [Supabase — relay only]
+    Envelopes[(message_envelopes)]
+    RT[Realtime publication]
+  end
+
+  Submit --> Pending --> OpenVault --> DeriveCK
+  DeriveCK --> PeerPub
+  DeriveCK --> IKpriv
+  DeriveCK --> CKcache
+  DeriveCK --> BuildAad --> Encrypt --> InsertEnv
+  InsertEnv --> Envelopes
+  InsertEnv --> SaveLocal --> Confirm
+  Envelopes --> RT
+```
+
 ```mermaid
 sequenceDiagram
   participant UI as ChatView
   participant Vault as IndexedDB
-  participant Crypto as E2EE_Layer
+  participant KX as ensureConversationKey
+  participant Core as packages/core crypto
+  participant PG as user_crypto_keys
   participant Relay as message_envelopes
-  participant Peer as Friend_Device
+  participant RT as Realtime
+  participant Peer as Friend ChatView
 
-  UI->>Vault: optimistic insert plaintext
-  UI->>Crypto: encrypt with CK
-  Crypto->>Relay: INSERT ciphertext envelope
-  Relay-->>Peer: Realtime INSERT
-  Peer->>Crypto: decrypt
-  Peer->>Vault: store plaintext
-  Peer->>Relay: ACK DELETE envelope
+  UI->>UI: createPendingMessage + clear compose
+  UI->>Vault: openVault(userId)
+  UI->>KX: ensureConversationKey(conversationId, recipientId)
+  KX->>PG: SELECT peer identity_pubkey, key_generation
+  KX->>KX: shared = X25519(IK_priv, peer_IK_pub)
+  KX->>KX: CK = HKDF(shared, conversation_id, peer_key_generation)
+  KX->>Vault: cache CK in crypto_material; TOFU pin in trusted_pubkeys
+
+  UI->>Core: buildAad(conversationId, senderId, messageId, text, senderKeyGeneration)
+  UI->>Core: encryptMessage(CK, plaintext, AAD)
+  Note over Core: nonce = 12 random bytes; ciphertext = AES-256-GCM
+
+  UI->>Relay: INSERT id, conversation_id, sender_id, recipient_id, ciphertext, nonce, sender_key_generation
+  Note over Relay: RLS — sender/recipient participants + accepted friendship; no SELECT for sender
+  UI->>Vault: messages.put decrypted copy for local history
+  UI->>UI: confirmPendingMessage
+
+  Relay->>RT: postgres_changes INSERT
+  RT->>Peer: envelope where recipient_id = friend
+  Peer->>Peer: processEnvelope → decrypt → vault.messages.put
+  Peer->>Relay: DELETE envelope (ACK)
 ```
+
+| Step | Code | What happens |
+|------|------|--------------|
+| 1 | `chat-view.tsx` `sendText` | Optimistic pending bubble; requires `vaultReady` |
+| 2 | `openVault` | Dexie DB `callingapp-vault-{userId}` |
+| 3 | `ensureConversationKey` | Fetch/cache peer `IK_pub`; ECDH + HKDF → AES-GCM `CK` |
+| 4 | `buildAad` | `conversationId\|\|senderId\|\|messageId\|\|type\|\|senderKeyGeneration` |
+| 5 | `encryptMessage` | Random 12-byte nonce; AES-256-GCM over UTF-8 body |
+| 6 | `message_envelopes` INSERT | Ciphertext + nonce only — **no** `.select()` (sender RLS) |
+| 7 | `vault.messages.put` | Plaintext saved locally; this is the history source of truth |
+| 8 | Realtime → `processEnvelope` | Recipient decrypts, stores locally, deletes envelope |
+
+### Receive flow (mirror)
+
+On open, `catchUpEnvelopes` processes any pending envelopes. While chat is open, Realtime subscribes to `message_envelopes` (`envelopes:{conversationId}`), not `messages`.
 
 ---
 
@@ -266,23 +335,23 @@ sequenceDiagram
 | 01 | Crypto module (`packages/core`) | **Done** |
 | 02 | IndexedDB vault | **Done** — live-query subscriptions and outbox helpers pending |
 | 03 | Single-device session | **Partial** — listener + purge shipped; auth callback + middleware pending |
-| 04 | Encrypted relay libs | **Partial** — send/receive/key-exchange shipped; outbox, offline catch-up, identity publish pending |
-| 05 | UI rewire (vault-first chat) | **Pending** |
+| 04 | Encrypted relay libs | **Partial** — send/receive/key-exchange/catch-up shipped; outbox retry pending |
+| 05 | UI rewire (vault-first chat) | **Partial** — `ChatView` text path shipped; sidebar/contacts vault rewire pending |
 | 06 | Encrypted images + cron | **Partial** — crypto helpers only |
 | 07 | Architecture docs | **In progress** |
 
-### What works today (library level)
+### What works today
 
 - X25519 identity keys, ECDH, HKDF conversation keys, AES-GCM message encrypt/decrypt (unit tested).
 - Dexie vault with message pagination, identity/CK storage, TOFU pubkey pins, wipe on logout.
-- `sendEncryptedText` and `processEnvelope` roundtrip against `message_envelopes` (not yet called from `ChatView`).
+- `ChatView` text send/receive: `sendEncryptedText`, Realtime on `message_envelopes`, `processEnvelope`, `catchUpEnvelopes`.
+- `E2eeIdentityBootstrap` publishes `IK_pub` on app load; pubkey prefetch on friend lookup/request/accept.
 - Session Realtime listener kicks replaced devices when `active_device_id` changes (requires server to bump the field).
 
 ### What is still pending
 
-- Wire `ChatView`, `ContactsProvider`, and sidebar to vault + E2EE relay (task 05).
-- Publish `IK_pub` to `user_crypto_keys` on first vault open / new device.
-- Offline envelope catch-up on app open; outbox retry for failed sends.
+- Wire `ContactsProvider` and sidebar previews to vault (task 05 remainder).
+- Outbox retry for failed sends.
 - Full auth callback + middleware session gate.
 - Encrypted image upload/download APIs and cron cleanup.
 - "Security code changed" UI; decrypt-failure placeholder bubbles.
