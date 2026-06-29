@@ -38,5 +38,6 @@ export async function GET() {
     valid,
     sessionVersion: profile?.session_version ?? null,
     deviceId: profile?.active_device_id ?? null,
+    cookieDeviceId: cookieDid ?? null,
   });
 }

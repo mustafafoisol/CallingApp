@@ -1,7 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getOrCreateDeviceId } from "../device-id";
-
 type ProfileSessionRow = {
   active_device_id: string | null;
 };
@@ -9,10 +7,9 @@ type ProfileSessionRow = {
 export function createSessionListener(
   supabase: SupabaseClient,
   userId: string,
+  authorizedDeviceId: string,
   onReplaced: () => void,
 ): () => void {
-  const localDeviceId = getOrCreateDeviceId();
-
   const channel = supabase
     .channel(`session:${userId}`)
     .on(
@@ -26,7 +23,7 @@ export function createSessionListener(
       (payload) => {
         const activeDeviceId = (payload.new as ProfileSessionRow)
           .active_device_id;
-        if (activeDeviceId && activeDeviceId !== localDeviceId) {
+        if (activeDeviceId && activeDeviceId !== authorizedDeviceId) {
           onReplaced();
         }
       },
