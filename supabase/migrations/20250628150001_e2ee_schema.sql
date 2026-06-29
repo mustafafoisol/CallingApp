@@ -46,6 +46,7 @@ create table public.message_envelopes (
 create index message_envelopes_recipient_created_idx
   on public.message_envelopes (recipient_id, created_at);
 create index message_envelopes_expires_idx on public.message_envelopes (expires_at);
+alter table public.message_envelopes replica identity full;
 alter table public.message_envelopes enable row level security;
 create policy "envelopes_insert_sender"
   on public.message_envelopes for insert to authenticated
