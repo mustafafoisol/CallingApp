@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { getOrCreateDeviceId } from "@/lib/device-id";
 import { DEVICE_ID_COOKIE } from "@/lib/session/cookies";
 
+function getOAuthRedirectOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  if (configured) return configured;
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+}
+
 export function LoginButton() {
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +32,7 @@ export function LoginButton() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?device_hint=${encodeURIComponent(deviceId)}`,
+          redirectTo: `${getOAuthRedirectOrigin()}/auth/callback?device_hint=${encodeURIComponent(deviceId)}`,
         },
       });
 
