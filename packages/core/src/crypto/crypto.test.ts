@@ -75,6 +75,15 @@ describe("crypto", () => {
     expect(decrypted).toEqual(plaintext);
   });
 
+  it("derives an extractable conversation key for vault persistence", async () => {
+    const pair = await generateIdentityKeyPair();
+    const shared = await deriveSharedSecret(pair.privateKey, pair.publicKey);
+    const ck = await deriveConversationKey(shared, CONVERSATION_ID, 1);
+
+    const raw = await globalThis.crypto.subtle.exportKey("raw", ck);
+    expect(new Uint8Array(raw)).toHaveLength(32);
+  });
+
   it("rejects decrypt on auth tag failure", async () => {
     const pair = await generateIdentityKeyPair();
     const shared = await deriveSharedSecret(pair.privateKey, pair.publicKey);
