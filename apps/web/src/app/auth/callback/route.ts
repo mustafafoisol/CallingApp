@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { authFailureFromExchangeError } from "@/lib/auth/callback-errors";
 import {
   DEVICE_ID_COOKIE,
   SESSION_COOKIE_OPTIONS,
@@ -9,26 +10,62 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
+function authErrorRedirect(
+  origin: string,
+  detail: string,
+): NextResponse {
+  const url = new URL(`${origin}/login`);
+  url.searchParams.set("error", "auth");
+  url.searchParams.set("detail", detail);
+  return NextResponse.redirect(url.toString());
+}
+
+async function ensureProfileRow(
+  userId: string,
+  db: Awaited<ReturnType<typeof createClient>>,
+): Promise<boolean> {
+  const { data: existing } = await db
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (existing) {
+    return true;
+  }
+
+  const admin = createAdminClient();
+  const insertClient = admin ?? db;
+  const { error } = await insertClient
+    .from("profiles")
+    .upsert({ id: userId }, { onConflict: "id" });
+
+  return !error;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/home";
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/login?error=auth`);
+    return authErrorRedirect(origin, "missing_code");
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) {
-    return NextResponse.redirect(`${origin}/login?error=auth`);
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  if (exchangeError) {
+    return authErrorRedirect(
+      origin,
+      authFailureFromExchangeError(exchangeError.message),
+    );
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.redirect(`${origin}/login?error=auth`);
+    return authErrorRedirect(origin, "no_user");
   }
 
   const deviceHint = request.nextUrl.searchParams.get("device_hint");
@@ -39,11 +76,17 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
   const db = admin ?? supabase;
 
+  const profileReady = await ensureProfileRow(user.id, db);
+  if (!profileReady) {
+    await supabase.auth.signOut();
+    return authErrorRedirect(origin, "profile_bind");
+  }
+
   const { data: profile } = await db
     .from("profiles")
     .select("session_version, active_device_id, public_id, display_name")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   const isNewDevice = profile?.active_device_id !== deviceId;
   const sessionVersion = isNewDevice
@@ -51,18 +94,20 @@ export async function GET(request: NextRequest) {
     : (profile?.session_version ?? 1);
 
   if (isNewDevice) {
-    const { error: updateError } = await db
+    const { data: updatedProfile, error: updateError } = await db
       .from("profiles")
       .update({
         session_version: sessionVersion,
         active_device_id: deviceId,
         active_session_at: new Date().toISOString(),
       })
-      .eq("id", user.id);
+      .eq("id", user.id)
+      .select("id")
+      .maybeSingle();
 
-    if (updateError) {
+    if (updateError || !updatedProfile) {
       await supabase.auth.signOut();
-      return NextResponse.redirect(`${origin}/login?error=auth`);
+      return authErrorRedirect(origin, "profile_bind");
     }
 
     if (admin) {
