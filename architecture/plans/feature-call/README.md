@@ -4,6 +4,8 @@ Branch: `feature-call`
 
 Re-introduce **voice calls** between accepted friends using WebRTC for media and Supabase for signaling. Video is a follow-up milestone after voice is stable.
 
+**Spec:** [SPEC.md](./SPEC.md) (Task 00 — approved)
+
 **Prior art:** [phase4/voice-video-calling.md](../phase4/voice-video-calling.md) · Original schema in `20250625000001_initial_schema.sql` · Dropped by `20250627000001_drop_calls.sql`
 
 ---

@@ -1,6 +1,6 @@
 # Task 00 — Scope and Spec
 
-**Milestone:** M0 · **Depends on:** — · **Est.:** 1h
+**Milestone:** M0 · **Depends on:** — · **Est.:** 1h · **Status:** ✅ Done
 
 ## Goal
 
@@ -8,11 +8,13 @@ Lock v1 voice-call boundaries so later tasks do not scope-creep.
 
 ## Deliverables
 
-- [ ] Confirm **voice-only** for v1 (video → M10 later)
-- [ ] Confirm entry point: call button on chat header (`chat-header.tsx`)
-- [ ] Confirm access: accepted friendship + conversation participant (reuse chat RLS pattern)
-- [ ] Confirm signaling: Postgres `calls` + Realtime (not custom WebSocket server)
-- [ ] Document non-goals: E2EE media, call recording, group calls, PSTN
+- [x] Confirm **voice-only** for v1 (video → M10 later)
+- [x] Confirm entry point: call button on chat header (`chat-header.tsx`)
+- [x] Confirm access: accepted friendship + conversation participant (reuse chat RLS pattern)
+- [x] Confirm signaling: Postgres `calls` + Realtime (not custom WebSocket server)
+- [x] Document non-goals: E2EE media, call recording, group calls, PSTN
+
+**Artifact:** [../SPEC.md](../SPEC.md)
 
 ## Acceptance criteria (v1)
 
@@ -34,9 +36,11 @@ Lock v1 voice-call boundaries so later tasks do not scope-creep.
 
 ## Verify
 
-- [ ] Team agrees on table above (no open questions on voice vs video)
-- [ ] TURN provider chosen (Metered.ca API key or coturn URL)
+- [x] Team agrees on table above (no open questions on voice vs video)
+- [x] TURN provider chosen: **Metered.ca** (`METERED_TURN_API_KEY`); STUN-only dev fallback
 
 ## Files
 
-None (decision task). Reference: [../README.md](../README.md)
+| File | Action |
+|------|--------|
+| [../SPEC.md](../SPEC.md) | Created — signed-off v1 spec |

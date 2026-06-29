@@ -4,7 +4,7 @@ Work top-to-bottom. Check `[x]` when task **Verify** section passes.
 
 | # | Task | Milestone | Depends | Est. | Status |
 |---|------|-----------|---------|------|--------|
-| 00 | [00-scope-and-spec](./00-scope-and-spec.md) | M0 | — | 1h | [ ] |
+| 00 | [00-scope-and-spec](./00-scope-and-spec.md) | M0 | — | 1h | [x] |
 | 01 | [01-restore-calls-schema](./01-restore-calls-schema.md) | M1 | 00 | 2h | [ ] |
 | 02 | [02-core-types-state-machine](./02-core-types-state-machine.md) | M2 | 01 | 3h | [ ] |
 | 03 | [03-turn-credentials-api](./03-turn-credentials-api.md) | M3 | 00 | 2h | [ ] |
@@ -21,7 +21,7 @@ Work top-to-bottom. Check `[x]` when task **Verify** section passes.
 ## Milestone checkpoints
 
 ### M0 — Scope
-- [ ] Task 00 complete
+- [x] Task 00 complete
 
 ### M1 — Schema
 - [ ] Task 01 complete
