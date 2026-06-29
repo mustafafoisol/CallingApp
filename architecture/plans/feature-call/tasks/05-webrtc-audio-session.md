@@ -8,14 +8,14 @@ Low-level WebRTC wrapper: mic capture, peer connection, audio playback.
 
 ## Checklist
 
-- [ ] `fetchIceServers()` — calls `/api/turn`
-- [ ] `createPeerConnection(iceServers)` with `bundlePolicy: max-bundle`
-- [ ] `attachLocalAudio(stream)` — `getUserMedia({ audio: true, video: false })`
-- [ ] `playRemoteAudio(pc)` — `ontrack` → `<audio autoplay>`
-- [ ] `createOffer()` / `createAnswer(remoteOffer)` — **full SDP** (no trickle ICE v1)
-- [ ] `setRemoteDescription(sdp)`
-- [ ] `closePeerConnection()` — stop tracks, close pc
-- [ ] Handle `getUserMedia` permission denied with typed error
+- [x] `fetchIceServers()` — calls `/api/turn`
+- [x] `createPeerConnection(iceServers)` with `bundlePolicy: max-bundle`
+- [x] `attachLocalAudio(stream)` — `getUserMedia({ audio: true, video: false })`
+- [x] `playRemoteAudio(pc)` — `ontrack` → `<audio autoplay>`
+- [x] `createOffer()` / `createAnswer(remoteOffer)` — **full SDP** (no trickle ICE v1)
+- [x] `setRemoteDescription(sdp)`
+- [x] `closePeerConnection()` — stop tracks, close pc
+- [x] Handle `getUserMedia` permission denied with typed error
 
 ## Design notes
 

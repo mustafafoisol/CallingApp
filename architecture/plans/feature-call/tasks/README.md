@@ -9,7 +9,7 @@ Work top-to-bottom. Check `[x]` when task **Verify** section passes.
 | 02 | [02-core-types-state-machine](./02-core-types-state-machine.md) | M2 | 01 | 3h | [x] |
 | 03 | [03-turn-credentials-api](./03-turn-credentials-api.md) | M3 | 00 | 2h | [x] |
 | 04 | [04-signaling-layer](./04-signaling-layer.md) | M3 | 01, 02 | 4h | [x] |
-| 05 | [05-webrtc-audio-session](./05-webrtc-audio-session.md) | M4 | 03, 04 | 5h | [ ] |
+| 05 | [05-webrtc-audio-session](./05-webrtc-audio-session.md) | M4 | 03, 04 | 5h | [x] |
 | 06 | [06-call-session-orchestrator](./06-call-session-orchestrator.md) | M4 | 05 | 4h | [ ] |
 | 07 | [07-outgoing-call-flow](./07-outgoing-call-flow.md) | M5 | 06 | 3h | [ ] |
 | 08 | [08-call-overlay-ui](./08-call-overlay-ui.md) | M5 | 07 | 4h | [ ] |
