@@ -34,7 +34,8 @@ Each contact card shows:
 | `apps/web/src/app/(app)/home/page.tsx` | Server component: load contacts, render MessagesShell |
 | `apps/web/src/lib/contacts/load-contacts.ts` | Shared contact query + sort |
 | `apps/web/src/components/messages/contacts-sidebar.tsx` | Sidebar UI (also shown on `/chat/[id]`) |
-| `apps/web/src/contexts/contacts-context.tsx` | Live unread/preview updates via global Realtime |
+| `apps/web/src/contexts/contacts-context.tsx` | Live unread/preview via message Realtime; reload list on friend accept (requester) |
+| `apps/web/src/lib/contacts/friendship-accepted-realtime.ts` | Subscribe to `friendships` UPDATE where `requester_id = me` |
 | `apps/web/src/lib/contacts/mark-conversation-read.ts` | Upsert `conversation_reads` on chat open |
 | `packages/core/src/conversation.ts` | `canonicalizeParticipants()` for conversation lookup |
 

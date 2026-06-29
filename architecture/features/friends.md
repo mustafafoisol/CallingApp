@@ -140,4 +140,5 @@ See [data-model-and-security.md](./data-model-and-security.md).
 | Block / unblock | [remove-and-block-friends.md](../plans/phase2/remove-and-block-friends.md) |
 | Outgoing request list | Query `status=pending` where `requester_id = me` |
 | Realtime pending notifications | Subscribe to `friendships` INSERT where `addressee_id = me` |
-| E2EE key exchange after accept | See [e2ee-friend-to-message-journey.md](../feature-tests/chat/e2ee-friend-to-message-journey.md) — **no crypto on request/accept**; keys exchanged lazily on first chat open |
+| Realtime accept (requester) | **Shipped** — `friendships` in `supabase_realtime`; `ContactsProvider` reloads list + browser notification when `status` → `accepted` and user is requester |
+| E2EE key exchange after accept | See [e2ee-friend-to-message-journey.md](../feature-tests/chat/e2ee-friend-to-message-journey.md) — prefetch on accept for both sides via `bootstrapAndPrefetchPeer` |
