@@ -1,6 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  SESSION_DEVICE_COOKIE,
+  SESSION_VERSION_COOKIE,
+} from "@/lib/session/cookies";
+import {
+  loadProfileSession,
+  sessionCookiesMatch,
+  sessionReplacedRedirect,
+} from "@/lib/session/validate";
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -51,6 +61,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  let profile = null;
+  if (user && !pathname.startsWith("/auth/callback")) {
+    profile = await loadProfileSession(supabase, user.id);
+    const cookieSv = request.cookies.get(SESSION_VERSION_COOKIE)?.value;
+    const cookieDid = request.cookies.get(SESSION_DEVICE_COOKIE)?.value;
+    if (!sessionCookiesMatch(cookieSv, cookieDid, profile)) {
+      return sessionReplacedRedirect(request, supabase);
+    }
+  }
+
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/home";
@@ -58,12 +78,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && isProtected) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("public_id, display_name")
-      .eq("id", user.id)
-      .single();
-
     const needsOnboarding = !profile?.public_id || !profile?.display_name;
     if (needsOnboarding && !isOnboarding) {
       const url = request.nextUrl.clone();
