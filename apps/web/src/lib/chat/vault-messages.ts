@@ -3,14 +3,13 @@ import type { VaultMessageRow } from "@/lib/vault/schema";
 import { getMessages } from "@/lib/vault/store";
 
 export function vaultRowToMessageRow(row: VaultMessageRow): MessageRow {
+  const isImage = row.type === "image" && !row.removedAt;
   return {
     id: row.id,
     sender_id: row.senderId,
-    body: row.removedAt ? "" : row.body,
+    body: isImage ? "" : row.removedAt ? "" : row.body,
     type: row.type,
-    attachment_url: row.attachmentId
-      ? `/api/chat/attachments/${row.attachmentId}`
-      : null,
+    attachment_url: isImage ? row.body : null,
     created_at: row.createdAt,
     removed_at: row.removedAt,
   };

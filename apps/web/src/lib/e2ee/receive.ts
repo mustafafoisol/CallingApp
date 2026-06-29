@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAad, decryptMessage } from "@calling-app/core";
 
+import { cacheAttachmentFromUrl } from "@/lib/chat/image-cache";
 import { recordVaultIncomingMessage } from "@/lib/contacts/vault-contact-sync";
 
 import type { CallingAppVault } from "@/lib/vault/schema";
@@ -116,6 +117,10 @@ async function processEnvelopeOnce(
 
   const { body, crypto } = await decryptEnvelope(vault, supabase, row);
   const createdAt = row.created_at;
+
+  if (row.type === "image") {
+    await cacheAttachmentFromUrl(vault, row.id, row.conversation_id, body);
+  }
 
   await vault.messages.put({
     id: row.id,
