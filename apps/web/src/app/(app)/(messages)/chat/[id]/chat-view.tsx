@@ -44,8 +44,13 @@ import { hideMessage } from "@/lib/chat/hide-message";
 import { removeMessage } from "@/lib/chat/remove-message";
 import { subscribeToConversationEnvelopes } from "@/lib/chat/envelope-realtime";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
+import {
+  clearVaultConversationUnread,
+  recordVaultOutgoingMessage,
+} from "@/lib/contacts/vault-contact-sync";
 import { cn } from "@/lib/utils";
 import { useCall } from "@/contexts/call-context";
+import { useContactsContext } from "@/contexts/contacts-context";
 import { isVoiceCallsEnabled } from "@/lib/call/feature-flag";
 
 function formatVaultError(err: unknown): string {
@@ -93,6 +98,7 @@ export function ChatView({
   const [loadOlderError, setLoadOlderError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const { startCall, uiState, error: callError, clearCallError } = useCall();
+  const { notifyLocalMessage } = useContactsContext();
   const [sendingImage, setSendingImage] = useState(false);
   const [linkPreviewUrl, setLinkPreviewUrl] = useState<string | null>(null);
   const [openActionsMessageId, setOpenActionsMessageId] = useState<
@@ -115,11 +121,15 @@ export function ChatView({
 
   const markRead = useCallback(() => {
     const supabase = createClient();
-    void markConversationRead(supabase, conversationId, currentUserId).catch(
-      (error) => {
+    void (async () => {
+      try {
+        await markConversationRead(supabase, conversationId, currentUserId);
+        const vault = await openVault(currentUserId);
+        await clearVaultConversationUnread(vault, conversationId);
+      } catch (error) {
         console.error("[chat] mark read failed", error);
-      },
-    );
+      }
+    })();
   }, [conversationId, currentUserId]);
 
   const reconcileMessage = useCallback(
@@ -358,6 +368,12 @@ export function ChatView({
           created_at: result.createdAt,
         }),
       );
+      notifyLocalMessage({
+        conversationId,
+        body: text,
+        type: "text",
+        createdAt: result.createdAt,
+      });
     } catch (error) {
       setMessages((prev) => markMessageFailed(prev, clientId));
       if (!existingClientId) {
@@ -443,6 +459,20 @@ export function ChatView({
       if (data) {
         scrollToBottomRef.current = true;
         setMessages((prev) => confirmPendingMessage(prev, clientId, data));
+        const vault = await openVault(currentUserId);
+        await recordVaultOutgoingMessage(
+          vault,
+          conversationId,
+          "",
+          "image",
+          data.created_at,
+        );
+        notifyLocalMessage({
+          conversationId,
+          body: "",
+          type: "image",
+          createdAt: data.created_at,
+        });
       }
     } catch (err) {
       setMessages((prev) => markMessageFailed(prev, clientId));
