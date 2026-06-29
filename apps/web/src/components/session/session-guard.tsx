@@ -3,9 +3,14 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+import { setDeviceId } from "@/lib/device-id";
 import { createSessionListener } from "@/lib/session/listener";
 import { handleSessionReplaced } from "@/lib/session/purge";
 import { createClient } from "@/lib/supabase/client";
+
+type SessionResponse = {
+  cookieDeviceId: string | null;
+};
 
 export function SessionGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -22,9 +27,22 @@ export function SessionGuard({ children }: { children: ReactNode }) {
 
       if (cancelled || !user) return;
 
-      unsubscribe = createSessionListener(supabase, user.id, () => {
-        void handleSessionReplaced(user.id, supabase, router);
-      });
+      const sessionRes = await fetch("/api/auth/session");
+      const session = (await sessionRes.json()) as SessionResponse;
+
+      if (cancelled) return;
+
+      if (session.cookieDeviceId) {
+        setDeviceId(session.cookieDeviceId);
+        unsubscribe = createSessionListener(
+          supabase,
+          user.id,
+          session.cookieDeviceId,
+          () => {
+            void handleSessionReplaced(user.id, supabase, router);
+          },
+        );
+      }
     })();
 
     return () => {

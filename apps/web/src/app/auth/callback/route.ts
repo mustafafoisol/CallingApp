@@ -31,8 +31,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth`);
   }
 
+  const deviceHint = request.nextUrl.searchParams.get("device_hint");
   const deviceId =
-    request.cookies.get(DEVICE_ID_COOKIE)?.value ?? crypto.randomUUID();
+    (deviceHint && deviceHint.length > 0
+      ? deviceHint
+      : request.cookies.get(DEVICE_ID_COOKIE)?.value) ?? crypto.randomUUID();
   const admin = createAdminClient();
   if (!admin) {
     return NextResponse.redirect(`${origin}/login?error=auth`);

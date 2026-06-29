@@ -7,6 +7,10 @@ export function getOrCreateDeviceId(): string {
   }
 
   const deviceId = crypto.randomUUID();
-  window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
+  setDeviceId(deviceId);
   return deviceId;
+}
+
+export function setDeviceId(deviceId: string): void {
+  window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
 }

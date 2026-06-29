@@ -14,7 +14,7 @@ export function LoginButton() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?device_hint=${encodeURIComponent(deviceId)}`,
       },
     });
   }

@@ -15,7 +15,11 @@ export function sessionCookiesMatch(
   cookieDid: string | undefined,
   profile: ProfileSession | null | undefined,
 ): boolean {
-  if (!cookieSv || !cookieDid || !profile?.active_device_id) {
+  if (!profile?.active_device_id) {
+    return true;
+  }
+
+  if (!cookieSv || !cookieDid) {
     return false;
   }
 

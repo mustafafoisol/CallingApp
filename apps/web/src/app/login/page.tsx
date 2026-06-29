@@ -1,8 +1,15 @@
 import { MessageCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { LoginAlerts } from "./login-alerts";
 import { LoginButton } from "./login-button";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; reason?: string }>;
+}) {
+  const params = await searchParams;
+
   return (
     <div className="flex min-h-dvh items-center justify-center px-4">
       <Card className="w-full max-w-md space-y-6 text-center">
@@ -15,6 +22,7 @@ export default function LoginPage() {
             Free 1-on-1 chat. Sign in to get your unique ID.
           </p>
         </div>
+        <LoginAlerts error={params.error} reason={params.reason} />
         <LoginButton />
         <p className="text-xs text-muted">
           By continuing you agree to use Google sign-in for authentication.
