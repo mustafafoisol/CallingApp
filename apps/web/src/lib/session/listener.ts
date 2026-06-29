@@ -1,17 +1,39 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { getOrCreateDeviceId } from "../device-id";
+
+type ProfileSessionRow = {
+  active_device_id: string | null;
+};
+
 export function createSessionListener(
   supabase: SupabaseClient,
   userId: string,
   onReplaced: () => void,
 ): () => void {
-  // TODO(Task 03.4): subscribe to profiles UPDATE via Realtime for `userId`
-  // When `active_device_id` !== local device_id, call `onReplaced()`
-  void supabase;
-  void userId;
-  void onReplaced;
+  const localDeviceId = getOrCreateDeviceId();
+
+  const channel = supabase
+    .channel(`session:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "profiles",
+        filter: `id=eq.${userId}`,
+      },
+      (payload) => {
+        const activeDeviceId = (payload.new as ProfileSessionRow)
+          .active_device_id;
+        if (activeDeviceId && activeDeviceId !== localDeviceId) {
+          onReplaced();
+        }
+      },
+    )
+    .subscribe();
 
   return () => {
-    // TODO: unsubscribe from Realtime channel
+    void supabase.removeChannel(channel);
   };
 }
