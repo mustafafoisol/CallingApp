@@ -1,12 +1,44 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { CallingAppVault } from "@/lib/vault/schema";
+import { DEVICE_IDENTITY_KEY } from "@/lib/vault/schema";
 import { type UserCryptoKeyRow } from "./envelope";
 import {
   ensureConversationKey,
   invalidateConversationKey,
   prefetchPeerPublicKey,
 } from "./key-exchange";
+
+async function warmConversationKeys(
+  supabase: SupabaseClient,
+  vault: CallingAppVault,
+  conversationId: string,
+  peerUserId: string,
+  peerGeneration?: number,
+): Promise<void> {
+  if (peerGeneration !== undefined) {
+    await ensureConversationKey(
+      vault,
+      supabase,
+      conversationId,
+      peerUserId,
+      peerGeneration,
+    );
+  } else {
+    await ensureConversationKey(vault, supabase, conversationId, peerUserId);
+  }
+
+  const identity = await vault.device_identity.get(DEVICE_IDENTITY_KEY);
+  if (identity) {
+    await ensureConversationKey(
+      vault,
+      supabase,
+      conversationId,
+      peerUserId,
+      identity.keyGeneration,
+    );
+  }
+}
 
 export async function exchangeKeysForConversation(
   supabase: SupabaseClient,
@@ -18,7 +50,7 @@ export async function exchangeKeysForConversation(
   if (!available) {
     throw new Error("Friend has not published an encryption key yet.");
   }
-  await ensureConversationKey(vault, supabase, conversationId, peerUserId);
+  await warmConversationKeys(supabase, vault, conversationId, peerUserId);
 }
 
 export async function handlePeerKeyRotation(
@@ -34,15 +66,13 @@ export async function handlePeerKeyRotation(
     .toArray();
 
   for (const row of rows) {
-    if (row.peerKeyGeneration < newGeneration) {
-      await invalidateConversationKey(vault, conversationId, row.peerKeyGeneration);
-    }
+    await invalidateConversationKey(vault, conversationId, row.peerKeyGeneration);
   }
 
   await prefetchPeerPublicKey(vault, supabase, peerUserId);
-  await ensureConversationKey(
-    vault,
+  await warmConversationKeys(
     supabase,
+    vault,
     conversationId,
     peerUserId,
     newGeneration,
