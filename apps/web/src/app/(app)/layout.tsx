@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { SessionGuard } from "@/components/session/session-guard";
 import { getAuthUser } from "@/lib/supabase/get-user";
 
 export default async function AppLayout({
@@ -10,5 +11,5 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  return <>{children}</>;
+  return <SessionGuard>{children}</SessionGuard>;
 }
