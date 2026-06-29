@@ -6,7 +6,6 @@ import { type MessageEnvelopeRow, toEncryptedEnvelope } from "./envelope";
 import {
   ensureConversationKey,
   invalidateConversationKey,
-  loadConversationKey,
   tryFetchPeerCryptoKey,
 } from "./key-exchange";
 
@@ -18,28 +17,6 @@ export interface ProcessEnvelopeResult {
 }
 
 const inflightEnvelopes = new Map<string, Promise<ProcessEnvelopeResult>>();
-
-async function resolveConversationKey(
-  vault: CallingAppVault,
-  supabase: SupabaseClient,
-  row: MessageEnvelopeRow,
-): Promise<CryptoKey> {
-  let ck = await loadConversationKey(
-    vault,
-    row.conversation_id,
-    row.sender_key_generation,
-  );
-  if (!ck) {
-    ck = await ensureConversationKey(
-      vault,
-      supabase,
-      row.conversation_id,
-      row.sender_id,
-      row.sender_key_generation,
-    );
-  }
-  return ck;
-}
 
 async function processEnvelopeOnce(
   supabase: SupabaseClient,
@@ -81,7 +58,13 @@ async function processEnvelopeOnce(
   });
   const envelope = toEncryptedEnvelope(row);
 
-  let ck = await resolveConversationKey(vault, supabase, row);
+  let ck = await ensureConversationKey(
+    vault,
+    supabase,
+    row.conversation_id,
+    row.sender_id,
+    row.sender_key_generation,
+  );
   let plaintext: Uint8Array;
   try {
     plaintext = await decryptMessage(ck, envelope.ciphertext, envelope.nonce, aad);

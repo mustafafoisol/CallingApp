@@ -214,6 +214,8 @@ export function ChatView({
   }, [conversationId, currentUserId, handleEnvelope]);
 
   useEffect(() => {
+    if (!vaultReady) return;
+
     const supabase = createClient();
     return subscribeToConversationEnvelopes(supabase, {
       conversationId,
@@ -226,7 +228,7 @@ export function ChatView({
       onStatus: setRealtimeStatus,
       poll: pollEnvelopes,
     });
-  }, [conversationId, currentUserId, handleEnvelope, pollEnvelopes]);
+  }, [vaultReady, conversationId, currentUserId, handleEnvelope, pollEnvelopes]);
 
   async function loadOlderMessages() {
     if (loadingOlder || !hasMore || messages.length === 0) return;

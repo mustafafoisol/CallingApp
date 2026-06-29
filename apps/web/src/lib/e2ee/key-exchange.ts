@@ -96,6 +96,10 @@ export async function invalidateConversationKey(
   await vault.crypto_material.delete(ckId(conversationId, peerKeyGeneration));
 }
 
+function pubkeysEqual(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, index) => byte === b[index]);
+}
+
 export async function ensureConversationKey(
   vault: CallingAppVault,
   supabase: SupabaseClient,
@@ -105,20 +109,29 @@ export async function ensureConversationKey(
 ): Promise<CryptoKey> {
   const peer = await fetchPeerCryptoKey(supabase, peerUserId);
   const generation = peerKeyGeneration ?? peer.key_generation;
+  const peerPubkey = parseBytea(peer.identity_pubkey);
+
   const cached = await loadConversationKey(vault, conversationId, generation);
-  if (cached) return cached;
+  if (cached) {
+    const pinned = await vault.trusted_pubkeys.get(peerUserId);
+    const cacheValid =
+      pinned &&
+      pinned.keyGeneration === generation &&
+      peer.key_generation === generation &&
+      pubkeysEqual(pinned.identityPubkey, peerPubkey);
+
+    if (cacheValid) return cached;
+    await invalidateConversationKey(vault, conversationId, generation);
+  }
 
   if (peer.key_generation !== generation) {
     throw new Error(`Peer pubkey unavailable for key generation ${generation}`);
   }
-
-  const peerPubkey = parseBytea(peer.identity_pubkey);
   const pinned = await vault.trusted_pubkeys.get(peerUserId);
   if (
     !pinned ||
     pinned.keyGeneration !== generation ||
-    pinned.identityPubkey.length !== peerPubkey.length ||
-    !pinned.identityPubkey.every((byte, index) => byte === peerPubkey[index])
+    !pubkeysEqual(pinned.identityPubkey, peerPubkey)
   ) {
     await vault.trusted_pubkeys.put({
       userId: peerUserId,

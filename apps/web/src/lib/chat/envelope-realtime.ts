@@ -18,6 +18,7 @@ export function subscribeToConversationEnvelopes(
   let channel: ReturnType<typeof supabase.channel> | null = null;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let connectPromise: Promise<void> | null = null;
   let cancelled = false;
 
   async function teardown() {
@@ -39,7 +40,7 @@ export function subscribeToConversationEnvelopes(
     }, RETRY_MS);
   }
 
-  async function connect() {
+  async function connectNow() {
     if (cancelled) return;
 
     const {
@@ -55,7 +56,7 @@ export function subscribeToConversationEnvelopes(
     await teardown();
 
     channel = supabase
-      .channel(`envelopes:${options.conversationId}:${Date.now()}`)
+      .channel(`envelopes:${options.conversationId}`)
       .on(
         "postgres_changes",
         {
@@ -80,6 +81,15 @@ export function subscribeToConversationEnvelopes(
       });
   }
 
+  function connect() {
+    if (cancelled) return Promise.resolve();
+    if (connectPromise) return connectPromise;
+    connectPromise = connectNow().finally(() => {
+      connectPromise = null;
+    });
+    return connectPromise;
+  }
+
   function onVisible() {
     if (document.visibilityState !== "visible") return;
     void connect();
@@ -91,7 +101,7 @@ export function subscribeToConversationEnvelopes(
     void options.poll();
   }
 
-  void connect();
+  void connect().then(() => options.poll());
 
   pollTimer = setInterval(() => {
     void options.poll();
