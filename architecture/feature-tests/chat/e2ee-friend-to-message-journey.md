@@ -429,8 +429,7 @@ After A requests and B accepts:
 
 | Gap | Impact |
 |-----|--------|
-| Pubkey published only on first chat open | Sender blocked until peer opens chat |
-| No pubkey publish on login | Same chicken-and-egg |
+| Peer has not logged in since E2EE bootstrap shipped | Sender blocked until peer signs in once |
 | `key_generation` never bumps on new device | Rotation story incomplete |
 | Images still use plaintext `messages` table | Image send path is not E2EE |
 | No outbox retry | Failed sends not queued in `vault.outbox` |
@@ -440,8 +439,6 @@ After A requests and B accepts:
 
 ## Suggested fixes for "cannot send" (implementation backlog)
 
-1. **Publish identity on app bootstrap** — call `ensureDeviceIdentity` from `(app)` layout after auth, not only `ChatView`.
+1. ~~**Publish identity on app bootstrap**~~ — **Shipped:** `E2eeIdentityBootstrap` in `(app)` layout; friend lookup/accept prefetches peer pubkeys.
 2. **Soften chat open** — if peer pubkey missing, allow compose with "Waiting for {name} to come online" instead of hard `vaultError`.
 3. **Friend-accept hook** — optional: prompt both users to open chat once after accept (no crypto, just UX).
-
-These are not implemented; this doc describes **current** behavior.

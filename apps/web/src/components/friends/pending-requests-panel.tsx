@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChatAvatar } from "@/components/chat/avatar";
+import { bootstrapAndPrefetchPeer } from "@/lib/e2ee/bootstrap-client";
 import { createClient } from "@/lib/supabase/client";
 
 interface PendingRequest {
   id: string;
+  requester_id: string;
   requester: {
     display_name: string | null;
     public_id: string;
@@ -30,19 +32,28 @@ export function PendingRequestsPanel({
     const { data } = await supabase
       .from("friendships")
       .select(
-        "id, requester:profiles!friendships_requester_id_fkey(display_name, public_id)",
+        "id, requester_id, requester:profiles!friendships_requester_id_fkey(display_name, public_id)",
       )
       .eq("addressee_id", user.id)
       .eq("status", "pending");
 
-    setRequests((data as PendingRequest[] | null) ?? []);
+    const rows = (data as PendingRequest[] | null) ?? [];
+    setRequests(rows);
+
+    for (const request of rows) {
+      void bootstrapAndPrefetchPeer(user.id, request.requester_id);
+    }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function respond(friendshipId: string, action: "accept" | "reject") {
+  async function respond(
+    friendshipId: string,
+    requesterId: string,
+    action: "accept" | "reject",
+  ) {
     setRespondingId(friendshipId);
     try {
       await fetch("/api/friends/respond", {
@@ -50,6 +61,17 @@ export function PendingRequestsPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ friendshipId, action }),
       });
+
+      if (action === "accept") {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          await bootstrapAndPrefetchPeer(user.id, requesterId);
+        }
+      }
+
       await load();
       onResponded?.();
     } finally {
@@ -87,7 +109,7 @@ export function PendingRequestsPanel({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void respond(req.id, "accept")}
+                  onClick={() => void respond(req.id, req.requester_id, "accept")}
                   className="rounded-full bg-[var(--chat-coral)] px-3.5 py-2 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(242,107,82,0.3)] disabled:opacity-50"
                 >
                   Accept
@@ -95,7 +117,7 @@ export function PendingRequestsPanel({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void respond(req.id, "reject")}
+                  onClick={() => void respond(req.id, req.requester_id, "reject")}
                   className="rounded-full bg-[var(--chat-hover)] px-3.5 py-2 text-xs font-semibold text-[var(--chat-muted)] disabled:opacity-50"
                 >
                   Reject
