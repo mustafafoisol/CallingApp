@@ -88,6 +88,14 @@ export async function loadConversationKey(
   return row ? importAesKey(row.conversationKey) : undefined;
 }
 
+export async function invalidateConversationKey(
+  vault: CallingAppVault,
+  conversationId: string,
+  peerKeyGeneration: number,
+): Promise<void> {
+  await vault.crypto_material.delete(ckId(conversationId, peerKeyGeneration));
+}
+
 export async function ensureConversationKey(
   vault: CallingAppVault,
   supabase: SupabaseClient,
