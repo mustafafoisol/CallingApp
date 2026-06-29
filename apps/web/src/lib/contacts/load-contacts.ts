@@ -1,8 +1,6 @@
-import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canonicalizeParticipants } from "@calling-app/core";
 import { IMAGE_MESSAGE_PREVIEW, REMOVED_MESSAGE_LABEL } from "@/lib/chat/messages";
-import { createClient } from "@/lib/supabase/server";
 
 export interface FriendProfile {
   id: string;
@@ -142,8 +140,3 @@ export async function loadContacts(
 ): Promise<Contact[]> {
   return loadContactsImpl(supabase, userId);
 }
-
-export const loadContactsForUser = cache(async (userId: string) => {
-  const supabase = await createClient();
-  return loadContactsImpl(supabase, userId);
-});

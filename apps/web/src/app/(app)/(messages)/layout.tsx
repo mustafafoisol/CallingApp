@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { MessagesShellLayout } from "@/components/messages/messages-shell-layout";
-import { loadContactsForUser } from "@/lib/contacts/load-contacts";
+import { loadContactsForUser } from "@/lib/contacts/load-contacts.server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/get-user";
 
