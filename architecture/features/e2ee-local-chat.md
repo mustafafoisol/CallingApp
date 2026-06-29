@@ -2,7 +2,7 @@
 
 End-to-end encrypted 1-on-1 messaging where decrypted history lives only on the active device. The server relays short-lived ciphertext envelopes and stores public keys — it cannot read message bodies.
 
-**Implementation plan:** [apps/e2e/PLAN.md](../../apps/e2e/PLAN.md) · **Task breakdown:** [apps/e2e/tasks/README.md](../../apps/e2e/tasks/README.md)
+**Implementation plan:** [apps/e2e/PLAN.md](../../apps/e2e/PLAN.md) · **Task breakdown:** [apps/e2e/tasks/README.md](../../apps/e2e/tasks/README.md) · **End-to-end journey (friend request → first message):** [e2ee-friend-to-message-journey.md](../feature-tests/chat/e2ee-friend-to-message-journey.md)
 
 > **Status (June 2026):** Core crypto, IndexedDB vault, encrypted relay library, and partial single-device session plumbing are shipped. UI rewire, full session enforcement, and encrypted images are still pending. Production chat still reads/writes plaintext `messages` until task 05 lands.
 
