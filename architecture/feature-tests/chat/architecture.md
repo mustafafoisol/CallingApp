@@ -4,7 +4,9 @@ How two accepted friends exchange text messages in CallingApp today.
 
 ## Summary
 
-Chat is **1-on-1 only**. Messages are stored in Supabase Postgres and delivered in real time via **Supabase Realtime** (`postgres_changes` on the `messages` table). There is no custom WebSocket server — the browser talks directly to Supabase using the anon key, with **Row Level Security (RLS)** enforcing who can read and write.
+Chat is **1-on-1 only**. **Text** messages are end-to-end encrypted: plaintext lives in **IndexedDB**, the server relays ciphertext via `message_envelopes`, and delivery uses **Supabase Realtime** (`postgres_changes` on that table). **Images** still use legacy plaintext `messages` + `chat-media`. There is no custom WebSocket server — the browser talks directly to Supabase using the anon key, with **Row Level Security (RLS)** enforcing who can read and write.
+
+Full crypto detail: [../../features/e2ee-local-chat.md](../../features/e2ee-local-chat.md).
 
 ## End-to-end flow
 
@@ -23,63 +25,83 @@ flowchart TB
 
   subgraph server [Server render — page.tsx]
     Verify[Verify user is conversation participant]
-    Load[SELECT up to 50 messages ASC]
-    Render[Pass initialMessages to ChatView]
+    Render[Pass conversation + friend to ChatView]
   end
 
   subgraph client [Client — chat-view.tsx]
-    Subscribe["Realtime subscribe messages:conversationId"]
+    VaultInit[openVault + ensureConversationKey + catchUp]
+    LoadVault[loadVaultMessages — last 50 from IndexedDB]
+    Subscribe["Realtime subscribe envelopes:conversationId"]
     Display[Render bubbles mine vs theirs]
-    Send[INSERT message via Supabase client]
+    SendText[sendEncryptedText — encrypt + INSERT envelope]
+    SendImg[Legacy image INSERT messages]
     Dedupe[Deduplicate by message id]
     Scroll[Auto-scroll to bottom]
   end
 
+  subgraph local [Device]
+    Vault[(IndexedDB vault)]
+    Crypto[AES-GCM + ECDH/HKDF]
+  end
+
   subgraph backend [Supabase]
-    PG[(messages table)]
+    Pubkeys[user_crypto_keys]
+    Envelopes[(message_envelopes)]
+    Messages[(messages — images only)]
     RLS[RLS policies]
-    Trigger[handle_new_message trigger]
     RT[Realtime publication]
   end
 
   Auth --> Friends --> Convo
   Home --> ChatPage
-  ChatPage --> Verify --> Load --> Render
-  Render --> Display
+  ChatPage --> Verify --> Render
+  Render --> VaultInit --> LoadVault --> Display
+  VaultInit --> Vault
+  VaultInit --> Crypto
+  Crypto --> Pubkeys
   Display --> Subscribe
   Subscribe --> RT
-  Send --> RLS --> PG
-  PG --> Trigger
-  PG --> RT
+  SendText --> Crypto --> Envelopes
+  SendText --> Vault
+  SendImg --> Messages
+  Envelopes --> RT
   RT --> Subscribe
   Subscribe --> Dedupe --> Display --> Scroll
 ```
 
-## Sequence: User A sends, User B receives
+## Sequence: User A sends text, User B receives (E2EE)
 
 ```mermaid
 sequenceDiagram
   participant A as UserA Browser
   participant PageA as chat page SSR
   participant ViewA as ChatView A
+  participant VaultA as IndexedDB A
   participant SB as Supabase
   participant ViewB as ChatView B
+  participant VaultB as IndexedDB B
   participant B as UserB Browser
 
   A->>PageA: GET /chat/:id
-  PageA->>SB: getUser + SELECT conversation + messages
-  PageA->>ViewA: initialMessages up to 50
-  ViewA->>SB: channel subscribe postgres_changes INSERT
+  PageA->>SB: getUser + SELECT conversation
+  PageA->>ViewA: conversationId, friendId
+  ViewA->>VaultA: initVault + loadVaultMessages
+  ViewA->>SB: subscribe message_envelopes INSERT
 
   B->>ViewB: Already on same /chat/:id
-  ViewB->>SB: channel subscribe postgres_changes INSERT
+  ViewB->>VaultB: initVault + load history
+  ViewB->>SB: subscribe message_envelopes INSERT
 
   A->>ViewA: Type message + Send
-  ViewA->>SB: INSERT messages row
-  Note over SB: RLS checks participant + accepted friendship
-  SB->>SB: Trigger updates conversations.last_message_at
-  SB-->>ViewA: INSERT ok — clear input
-  SB-->>ViewB: Realtime INSERT event
+  ViewA->>ViewA: optimistic pending bubble
+  ViewA->>SB: SELECT peer IK_pub from user_crypto_keys
+  ViewA->>ViewA: ECDH + HKDF → CK; buildAad; AES-GCM encrypt
+  ViewA->>SB: INSERT message_envelopes ciphertext + nonce
+  ViewA->>VaultA: store plaintext
+  SB-->>ViewB: Realtime INSERT envelope
+  ViewB->>ViewB: processEnvelope → decrypt
+  ViewB->>VaultB: store plaintext
+  ViewB->>SB: DELETE envelope
   ViewB->>ViewB: Append message if id not seen
   ViewB->>B: Bubble appears + scroll
 ```
@@ -108,16 +130,17 @@ If friendship is `pending` or `blocked`, RLS **blocks** message INSERT even if a
 | Auth gate | Redirect to `/login` if no session |
 | Participant check | Redirect to `/home` if user not in `user_a_id` / `user_b_id` |
 | Friend resolution | Load other participant's profile for header title |
-| History load | `SELECT` messages `ORDER BY created_at ASC LIMIT 50` |
-| Hydration | Pass `initialMessages` to client `ChatView` |
+| History load | Client loads from IndexedDB via `loadVaultMessages` after `initVault` |
+| Hydration | Pass `conversationId`, `friendId`, `currentUserId` to `ChatView` |
 
 ### [`chat-view.tsx`](../../../apps/web/src/app/(app)/chat/[id]/chat-view.tsx) — Client
 
 | Responsibility | Detail |
 |----------------|--------|
-| State | `messages` from SSR; `body` for compose input |
-| Realtime | Channel `messages:{conversationId}`, filter `conversation_id=eq.{id}`, event `INSERT` |
-| Send | `INSERT` + `.select().single()` — append returned row immediately |
+| State | `messages` from vault; `vaultReady` gate; `body` for compose input |
+| Realtime | Channel `envelopes:{conversationId}`, table `message_envelopes`, event `INSERT` |
+| Send text | `sendEncryptedText` — encrypt, INSERT envelope, save plaintext to vault |
+| Send image | Legacy `INSERT` into `messages` + `chat-media` upload |
 | Dedup | Skip append if `message.id` already in state |
 | UI | Right bubble = mine (`sender_id === currentUserId`), left = theirs |
 | Scroll | `scrollIntoView` on bottom ref when `messages` changes |

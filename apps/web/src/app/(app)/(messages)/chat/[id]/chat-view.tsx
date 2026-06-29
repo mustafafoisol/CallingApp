@@ -13,7 +13,10 @@ import {
   loadVaultMessages,
 } from "@/lib/chat/vault-messages";
 import { ensureDeviceIdentity } from "@/lib/e2ee/bootstrap";
-import { catchUpEnvelopes } from "@/lib/e2ee/catch-up";
+import {
+  catchUpConversationEnvelopes,
+  catchUpEnvelopes,
+} from "@/lib/e2ee/catch-up";
 import { type MessageEnvelopeRow } from "@/lib/e2ee/envelope";
 import { ensureConversationKey } from "@/lib/e2ee/key-exchange";
 import { processEnvelope } from "@/lib/e2ee/receive";
@@ -172,10 +175,55 @@ export function ChatView({
     }
   }, [messages]);
 
+  const handleIncomingEnvelope = useCallback(
+    async (row: MessageEnvelopeRow) => {
+      if (row.recipient_id !== currentUserId) return;
+      const supabase = createClient();
+      const vault = await openVault(currentUserId);
+      const result = await processEnvelope(supabase, vault, row);
+      if (result.skipped) return;
+      reconcileMessage({
+        id: result.messageId,
+        sender_id: row.sender_id,
+        body: result.body,
+        type: row.type,
+        created_at: result.createdAt,
+      });
+    },
+    [currentUserId, reconcileMessage],
+  );
+
   useEffect(() => {
+    if (!vaultReady) return;
+
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
     let cancelled = false;
+
+    async function pollPendingEnvelopes() {
+      if (cancelled) return;
+      try {
+        const vault = await openVault(currentUserId);
+        await catchUpConversationEnvelopes(
+          supabase,
+          vault,
+          currentUserId,
+          conversationId,
+          (result, row) => {
+            reconcileMessage({
+              id: result.messageId,
+              sender_id: row.sender_id,
+              body: result.body,
+              type: row.type,
+              created_at: result.createdAt,
+            });
+          },
+        );
+      } catch (err) {
+        console.error("[chat] envelope poll failed", err);
+      }
+    }
 
     async function subscribe() {
       const {
@@ -200,38 +248,41 @@ export function ChatView({
             filter: `conversation_id=eq.${conversationId}`,
           },
           (payload) => {
-            void (async () => {
-              const row = payload.new as MessageEnvelopeRow;
-              if (row.recipient_id !== currentUserId) return;
-              const vault = await openVault(currentUserId);
-              const result = await processEnvelope(supabase, vault, row);
-              if (result.skipped) return;
-              reconcileMessage({
-                id: result.messageId,
-                sender_id: row.sender_id,
-                body: result.body,
-                type: row.type,
-                created_at: result.createdAt,
-              });
-            })().catch((err) => console.error("[chat] envelope receive failed", err));
+            void handleIncomingEnvelope(payload.new as MessageEnvelopeRow).catch(
+              (err) => console.error("[chat] envelope receive failed", err),
+            );
           },
         )
         .subscribe((status, err) => {
           if (cancelled) return;
           setRealtimeStatus(status);
+          if (status === "SUBSCRIBED") {
+            console.info("[chat] realtime subscribed", conversationId);
+          }
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             console.error("[chat] realtime failed", status, err);
           }
         });
+
+      pollTimer = setInterval(() => {
+        void pollPendingEnvelopes();
+      }, 15_000);
     }
 
     void subscribe();
 
     return () => {
       cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [conversationId, currentUserId, reconcileMessage]);
+  }, [
+    conversationId,
+    currentUserId,
+    handleIncomingEnvelope,
+    reconcileMessage,
+    vaultReady,
+  ]);
 
   async function loadOlderMessages() {
     if (loadingOlder || !hasMore || messages.length === 0) return;

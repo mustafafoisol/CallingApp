@@ -3,11 +3,15 @@ import type { EncryptedEnvelope, MessageAadParams } from "./types.js";
 const subtle = globalThis.crypto.subtle;
 const textEncoder = new TextEncoder();
 
+function normalizeUuid(value: string): string {
+  return value.toLowerCase();
+}
+
 export function buildAad(params: MessageAadParams): Uint8Array {
   const parts = [
-    params.conversationId,
-    params.senderId,
-    params.messageId,
+    normalizeUuid(params.conversationId),
+    normalizeUuid(params.senderId),
+    normalizeUuid(params.messageId),
     params.type,
     String(params.senderKeyGeneration),
   ];

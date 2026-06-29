@@ -94,6 +94,8 @@ create index if not exists message_envelopes_recipient_created_idx
 create index if not exists message_envelopes_expires_idx
   on public.message_envelopes (expires_at);
 
+alter table public.message_envelopes replica identity full;
+
 alter table public.message_envelopes enable row level security;
 
 do $$

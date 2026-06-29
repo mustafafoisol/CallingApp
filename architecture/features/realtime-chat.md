@@ -2,27 +2,60 @@
 
 1-on-1 text and image messaging between accepted friends with live delivery via Supabase Realtime.
 
-> **E2EE migration in progress:** Target delivery uses `message_envelopes` (ciphertext relay) with decrypted history in IndexedDB — see [e2ee-local-chat.md](./e2ee-local-chat.md). This document describes the **current production UI**, which still reads/writes plaintext `messages` until task 05 (UI rewire) lands.
+> **E2EE (text):** Text messages use `message_envelopes` + IndexedDB vault — see [e2ee-local-chat.md](./e2ee-local-chat.md). **Images** still use legacy plaintext `messages` + public `chat-media` until encrypted attachments ship.
 
-## User flow
+## User flow — text (E2EE)
 
 ```mermaid
 sequenceDiagram
   actor A as User A
   actor B as User B
   participant ChatA as ChatView A
-  participant DB as Postgres
+  participant VaultA as IndexedDB A
+  participant DB as Supabase
   participant RT as Realtime
+  participant VaultB as IndexedDB B
   participant ChatB as ChatView B
 
   A->>ChatA: Open /chat/:id
-  ChatA->>DB: SELECT last 50 messages (SSR)
-  ChatA->>RT: Subscribe messages:conversationId
+  ChatA->>VaultA: initVault — identity, CK, catchUpEnvelopes
+  ChatA->>VaultA: loadVaultMessages (last 50)
+  ChatA->>RT: Subscribe envelopes:conversationId
+
+  B->>ChatB: Open /chat/:id
+  ChatB->>VaultB: initVault + load history
+  ChatB->>RT: Subscribe envelopes:conversationId
+
   A->>ChatA: Type + Send
-  ChatA->>DB: INSERT message (RLS checks friendship)
+  ChatA->>ChatA: optimistic pending bubble
+  ChatA->>DB: fetch peer IK_pub → derive CK
+  ChatA->>ChatA: AES-256-GCM encrypt + buildAad
+  ChatA->>DB: INSERT message_envelopes (ciphertext only)
+  ChatA->>VaultA: store plaintext locally
+  DB->>RT: postgres_changes INSERT
+  RT->>ChatB: envelope for recipient_id
+  ChatB->>ChatB: processEnvelope → decrypt
+  ChatB->>VaultB: store plaintext
+  ChatB->>DB: DELETE envelope (ACK)
+  ChatB->>ChatB: Append bubble, scroll down
+```
+
+## User flow — images (legacy)
+
+```mermaid
+sequenceDiagram
+  actor A as User A
+  actor B as User B
+  participant ChatA as ChatView A
+  participant DB as Postgres messages
+  participant RT as Realtime
+  participant ChatB as ChatView B
+
+  A->>ChatA: Pick image + Send
+  ChatA->>DB: Upload chat-media + INSERT messages row
   DB->>RT: postgres_changes INSERT
   RT->>ChatB: New message event
-  ChatB->>ChatB: Append to state, scroll down
+  ChatB->>ChatB: Append image bubble
 ```
 
 ## Access control
@@ -91,17 +124,22 @@ Enforced by RLS policy `messages_insert_participant` — see [data-model-and-sec
 - `hasMore` / `loadingOlder` — cursor pagination for older history
 - `body` — compose input text
 
-**Realtime subscription:**
+**Realtime subscription (text):**
 ```typescript
-supabase.channel(`messages:${conversationId}`)
+supabase.channel(`envelopes:${conversationId}`)
   .on("postgres_changes", {
     event: "INSERT",
     schema: "public",
-    table: "messages",
+    table: "message_envelopes",
     filter: `conversation_id=eq.${conversationId}`,
-  }, handler)
-  .on("postgres_changes", { event: "UPDATE", ... }, handler)  // removed_at sync
+  }, async (payload) => {
+    if (payload.new.recipient_id !== currentUserId) return;
+    const result = await processEnvelope(supabase, vault, payload.new);
+    // append decrypted message to UI
+  })
 ```
+
+Image sends still `INSERT` into `messages` and may use a separate legacy subscription path where applicable.
 
 **Deduplication:** Before appending, checks `prev.some(m => m.id === row.id)`.
 
@@ -110,7 +148,9 @@ supabase.channel(`messages:${conversationId}`)
 - **Own message:** `UPDATE` sets `removed_at` + clears `body`; both users see muted **"Message removed"** bubble (realtime UPDATE).
 - **Other's message:** `INSERT message_hides`; hidden only for the actor (filtered on SSR load and pagination).
 
-**Send (optimistic):** On submit, appends a pending bubble immediately and clears the compose input. Background `INSERT` with `.select().single()` replaces the pending row with the confirmed message. Realtime INSERT reconciles the same way if it arrives first. Failed sends show "Failed to send · Retry" on the bubble; compose-level error for first failure.
+**Send text (optimistic + E2EE):** On submit, appends a pending bubble and clears compose. `sendEncryptedText` derives `CK`, encrypts with AES-256-GCM, `INSERT`s into `message_envelopes` (insert-only — no `.select()`), then saves plaintext to IndexedDB and confirms the bubble. Failed sends show "Failed to send · Retry".
+
+**Send image (legacy):** Compresses, uploads to `chat-media`, `INSERT`s plaintext `messages` row with public URL.
 
 **Realtime:** Subscribes after `getSession()`; logs channel status; banner if not `SUBSCRIBED`.
 

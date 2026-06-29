@@ -8,6 +8,7 @@ vi.mock("@calling-app/core", () => ({
     ciphertext: new Uint8Array([9, 9]),
     nonce: new Uint8Array([8]),
   })),
+  decryptMessage: vi.fn(async () => new TextEncoder().encode("hello")),
 }));
 
 vi.mock("./key-exchange", () => ({
