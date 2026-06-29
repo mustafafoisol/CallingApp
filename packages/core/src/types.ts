@@ -36,3 +36,29 @@ export interface Message {
   created_at: string;
   removed_at: string | null;
 }
+
+export type CallKind = "voice" | "video";
+
+export type CallStatus =
+  | "ringing"
+  | "accepted"
+  | "ended"
+  | "missed"
+  | "rejected"
+  | "busy";
+
+export type CallRole = "caller" | "callee";
+
+export interface CallRecord {
+  id: string;
+  conversation_id: string;
+  caller_id: string;
+  callee_id: string;
+  kind: CallKind;
+  status: CallStatus;
+  offer_sdp: string | null;
+  answer_sdp: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+}
