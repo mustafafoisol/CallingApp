@@ -34,6 +34,12 @@ export async function ensureDeviceIdentity(
     return existing;
   }
 
+  const { data: serverRow } = await supabase
+    .from("user_crypto_keys")
+    .select("key_generation")
+    .eq("user_id", userId)
+    .maybeSingle();
+
   const pair = await generateIdentityKeyPair();
   const identityPublicKey = await exportPublicKeyRaw(pair.publicKey);
   const identityPrivateKey = await exportPrivateKeyRaw(pair.privateKey);
@@ -41,7 +47,7 @@ export async function ensureDeviceIdentity(
     id: DEVICE_IDENTITY_KEY,
     identityPrivateKey,
     identityPublicKey,
-    keyGeneration: 1,
+    keyGeneration: serverRow?.key_generation ? serverRow.key_generation + 1 : 1,
   };
   await vault.device_identity.put(row);
   await publishIdentityToServer(supabase, userId, row);

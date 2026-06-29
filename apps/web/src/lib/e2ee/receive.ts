@@ -2,8 +2,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAad, decryptMessage } from "@calling-app/core";
 
 import type { CallingAppVault } from "@/lib/vault/schema";
-import { type MessageEnvelopeRow, toEncryptedEnvelope } from "./envelope";
-import { ensureConversationKey, loadConversationKey } from "./key-exchange";
+import {
+  normalizeEnvelopeRow,
+  type MessageEnvelopeRow,
+  toEncryptedEnvelope,
+} from "./envelope";
+import {
+  clearConversationKey,
+  ensureConversationKey,
+  loadConversationKey,
+} from "./key-exchange";
 
 export interface ProcessEnvelopeResult {
   messageId: string;
@@ -15,8 +23,10 @@ export interface ProcessEnvelopeResult {
 export async function processEnvelope(
   supabase: SupabaseClient,
   vault: CallingAppVault,
-  row: MessageEnvelopeRow,
+  rawRow: MessageEnvelopeRow | Record<string, unknown>,
 ): Promise<ProcessEnvelopeResult> {
+  const row = normalizeEnvelopeRow(rawRow as Record<string, unknown>);
+
   if (new Date(row.expires_at) <= new Date()) {
     return { messageId: row.id, body: "", createdAt: row.created_at, skipped: true };
   }
@@ -32,17 +42,6 @@ export async function processEnvelope(
     };
   }
 
-  let ck = await loadConversationKey(vault, row.conversation_id, row.sender_key_generation);
-  if (!ck) {
-    ck = await ensureConversationKey(
-      vault,
-      supabase,
-      row.conversation_id,
-      row.sender_id,
-      row.sender_key_generation,
-    );
-  }
-
   const aad = buildAad({
     conversationId: row.conversation_id,
     senderId: row.sender_id,
@@ -51,7 +50,42 @@ export async function processEnvelope(
     senderKeyGeneration: row.sender_key_generation,
   });
   const envelope = toEncryptedEnvelope(row);
-  const plaintext = await decryptMessage(ck, envelope.ciphertext, envelope.nonce, aad);
+
+  async function deriveCk(force = false): Promise<CryptoKey> {
+    if (!force) {
+      const cached = await loadConversationKey(
+        vault,
+        row.conversation_id,
+        row.sender_key_generation,
+      );
+      if (cached) return cached;
+    } else {
+      await clearConversationKey(vault, row.conversation_id, row.sender_key_generation);
+    }
+    return ensureConversationKey(
+      vault,
+      supabase,
+      row.conversation_id,
+      row.sender_id,
+      row.sender_key_generation,
+    );
+  }
+
+  let ck = await deriveCk();
+  let plaintext: Uint8Array;
+  try {
+    plaintext = await decryptMessage(ck, envelope.ciphertext, envelope.nonce, aad);
+  } catch (firstError) {
+    ck = await deriveCk(true);
+    try {
+      plaintext = await decryptMessage(ck, envelope.ciphertext, envelope.nonce, aad);
+    } catch {
+      const detail = firstError instanceof Error ? firstError.message : "decrypt failed";
+      throw new Error(
+        `Decryption failed for envelope ${row.id} (sender_key_generation=${row.sender_key_generation}): ${detail}`,
+      );
+    }
+  }
   const body = new TextDecoder().decode(plaintext);
   const createdAt = row.created_at;
 

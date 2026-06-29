@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildAad, encryptMessage } from "@calling-app/core";
+import { buildAad, decryptMessage, encryptMessage } from "@calling-app/core";
 
 import type { CallingAppVault } from "@/lib/vault/schema";
 import { DEVICE_IDENTITY_KEY } from "@/lib/vault/schema";
@@ -25,10 +25,16 @@ export async function sendEncryptedText(
   params: SendEncryptedTextParams,
 ): Promise<SendEncryptedTextResult> {
   const { conversationId, recipientId, senderId, messageId, body } = params;
-  const ck = await ensureConversationKey(vault, supabase, conversationId, recipientId);
-
   const identity = await vault.device_identity.get(DEVICE_IDENTITY_KEY);
   if (!identity) throw new Error("Device identity key is missing");
+
+  const ck = await ensureConversationKey(
+    vault,
+    supabase,
+    conversationId,
+    recipientId,
+    identity.keyGeneration,
+  );
 
   const aad = buildAad({
     conversationId,
@@ -37,7 +43,12 @@ export async function sendEncryptedText(
     type: "text",
     senderKeyGeneration: identity.keyGeneration,
   });
-  const encrypted = await encryptMessage(ck, new TextEncoder().encode(body), aad);
+  const plaintext = new TextEncoder().encode(body);
+  const encrypted = await encryptMessage(ck, plaintext, aad);
+  const verified = await decryptMessage(ck, encrypted.ciphertext, encrypted.nonce, aad);
+  if (verified.length !== plaintext.length || !verified.every((b, i) => b === plaintext[i])) {
+    throw new Error("Local encrypt verification failed");
+  }
   const createdAt = new Date().toISOString();
 
   const { error } = await supabase.from("message_envelopes").insert({

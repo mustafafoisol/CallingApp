@@ -88,35 +88,62 @@ export async function loadConversationKey(
   return row ? importAesKey(row.conversationKey) : undefined;
 }
 
+export async function clearConversationKey(
+  vault: CallingAppVault,
+  conversationId: string,
+  ckGeneration: number,
+): Promise<void> {
+  await vault.crypto_material.delete(ckId(conversationId, ckGeneration));
+}
+
+export async function clearConversationKeys(
+  vault: CallingAppVault,
+  conversationId: string,
+): Promise<void> {
+  const rows = await vault.crypto_material
+    .where("conversationId")
+    .equals(conversationId)
+    .toArray();
+  if (rows.length > 0) {
+    await vault.crypto_material.bulkDelete(rows.map((row) => row.id));
+  }
+}
+
+function pubkeysEqual(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, index) => byte === b[index]);
+}
+
 export async function ensureConversationKey(
   vault: CallingAppVault,
   supabase: SupabaseClient,
   conversationId: string,
   peerUserId: string,
-  peerKeyGeneration?: number,
+  /** HKDF info generation — sender's key_generation for this message direction. */
+  ckGeneration?: number,
 ): Promise<CryptoKey> {
   const peer = await fetchPeerCryptoKey(supabase, peerUserId);
-  const generation = peerKeyGeneration ?? peer.key_generation;
+  const identity = await vault.device_identity.get(DEVICE_IDENTITY_KEY);
+  if (!identity) throw new Error("Device identity key is missing");
+
+  const generation = ckGeneration ?? identity.keyGeneration;
   const cached = await loadConversationKey(vault, conversationId, generation);
   if (cached) return cached;
 
-  if (peer.key_generation !== generation) {
-    throw new Error(`Peer pubkey unavailable for key generation ${generation}`);
-  }
-
   const peerPubkey = parseBytea(peer.identity_pubkey);
   const pinned = await vault.trusted_pubkeys.get(peerUserId);
-  if (!pinned) {
-    await vault.trusted_pubkeys.put({
-      userId: peerUserId,
-      identityPubkey: peerPubkey,
-      keyGeneration: generation,
-      pinnedAt: new Date().toISOString(),
-    });
+  if (
+    pinned &&
+    (pinned.keyGeneration !== peer.key_generation ||
+      !pubkeysEqual(pinned.identityPubkey, peerPubkey))
+  ) {
+    await clearConversationKeys(vault, conversationId);
   }
-
-  const identity = await vault.device_identity.get(DEVICE_IDENTITY_KEY);
-  if (!identity) throw new Error("Device identity key is missing");
+  await vault.trusted_pubkeys.put({
+    userId: peerUserId,
+    identityPubkey: peerPubkey,
+    keyGeneration: peer.key_generation,
+    pinnedAt: new Date().toISOString(),
+  });
 
   const myPrivate = await importPrivateKeyRaw(identity.identityPrivateKey);
   const peerPublic = await importPublicKeyRaw(peerPubkey);
