@@ -15,7 +15,12 @@ import {
 import { ensureDeviceIdentity } from "@/lib/e2ee/bootstrap";
 import { catchUpEnvelopes } from "@/lib/e2ee/catch-up";
 import { type MessageEnvelopeRow } from "@/lib/e2ee/envelope";
-import { ensureConversationKey } from "@/lib/e2ee/key-exchange";
+import { tryFetchPeerCryptoKey } from "@/lib/e2ee/key-exchange";
+import {
+  exchangeKeysForConversation,
+  handlePeerKeyRotation,
+  subscribeToPeerKeyChanges,
+} from "@/lib/e2ee/peer-key-sync";
 import { processEnvelope } from "@/lib/e2ee/receive";
 import { sendEncryptedText } from "@/lib/e2ee/send";
 import { openVault } from "@/lib/vault/store";
@@ -71,6 +76,7 @@ export function ChatView({
     initialMessages.map((message) => ({ ...message, status: "confirmed" })),
   );
   const [vaultReady, setVaultReady] = useState(false);
+  const [peerKeysReady, setPeerKeysReady] = useState(false);
   const [vaultError, setVaultError] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
@@ -95,6 +101,8 @@ export function ChatView({
   const pendingScrollRestore = useRef<{ height: number; top: number } | null>(
     null,
   );
+  const peerKeyGenerationRef = useRef(0);
+  const pollEnvelopesRef = useRef<() => Promise<void>>(async () => undefined);
 
   const markRead = useCallback(() => {
     const supabase = createClient();
@@ -135,11 +143,23 @@ export function ChatView({
 
     async function initVault() {
       setVaultError(null);
+      setVaultReady(false);
+      setPeerKeysReady(false);
+      peerKeyGenerationRef.current = 0;
       try {
         const supabase = createClient();
         const vault = await openVault(currentUserId);
         await ensureDeviceIdentity(supabase, vault, currentUserId);
-        await ensureConversationKey(vault, supabase, conversationId, friendId);
+        await exchangeKeysForConversation(
+          supabase,
+          vault,
+          conversationId,
+          friendId,
+        );
+        const peerKey = await tryFetchPeerCryptoKey(supabase, friendId);
+        peerKeyGenerationRef.current = peerKey?.key_generation ?? 0;
+        if (cancelled) return;
+        setPeerKeysReady(true);
         await catchUpEnvelopes(supabase, vault, currentUserId);
         const loaded = await loadVaultMessages(conversationId, INITIAL_MESSAGE_LIMIT);
         if (cancelled) return;
@@ -214,7 +234,44 @@ export function ChatView({
   }, [conversationId, currentUserId, handleEnvelope]);
 
   useEffect(() => {
+    pollEnvelopesRef.current = pollEnvelopes;
+  }, [pollEnvelopes]);
+
+  useEffect(() => {
     if (!vaultReady) return;
+
+    const supabase = createClient();
+    return subscribeToPeerKeyChanges(supabase, friendId, (row) => {
+      if (row.key_generation <= peerKeyGenerationRef.current) return;
+      peerKeyGenerationRef.current = row.key_generation;
+
+      void (async () => {
+        setPeerKeysReady(false);
+        try {
+          const vault = await openVault(currentUserId);
+          await handlePeerKeyRotation(
+            supabase,
+            vault,
+            conversationId,
+            friendId,
+            row.key_generation,
+          );
+          await pollEnvelopesRef.current();
+          setPeerKeysReady(true);
+        } catch (err) {
+          console.error("[chat] peer key rotation failed", err);
+          setVaultError(
+            err instanceof Error
+              ? err.message
+              : "Could not refresh encryption keys.",
+          );
+        }
+      })();
+    });
+  }, [vaultReady, friendId, conversationId, currentUserId]);
+
+  useEffect(() => {
+    if (!vaultReady || !peerKeysReady) return;
 
     const supabase = createClient();
     return subscribeToConversationEnvelopes(supabase, {
@@ -228,7 +285,14 @@ export function ChatView({
       onStatus: setRealtimeStatus,
       poll: pollEnvelopes,
     });
-  }, [vaultReady, conversationId, currentUserId, handleEnvelope, pollEnvelopes]);
+  }, [
+    vaultReady,
+    peerKeysReady,
+    conversationId,
+    currentUserId,
+    handleEnvelope,
+    pollEnvelopes,
+  ]);
 
   async function loadOlderMessages() {
     if (loadingOlder || !hasMore || messages.length === 0) return;
@@ -328,7 +392,7 @@ export function ChatView({
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!vaultReady) return;
+    if (!vaultReady || !peerKeysReady) return;
     const text = body.trim();
     if (!text) return;
 
@@ -530,7 +594,9 @@ export function ChatView({
 
         {!vaultReady && !vaultError && (
           <p className="text-center text-sm text-[#A8998F]">
-            Loading encrypted messages…
+            {peerKeysReady
+              ? "Loading encrypted messages…"
+              : "Establishing secure connection…"}
           </p>
         )}
 
@@ -642,7 +708,7 @@ export function ChatView({
         onSubmit={sendMessage}
         onSendImage={(file) => void sendImage(file)}
         sending={sendingImage}
-        disabled={!canMessage || !vaultReady}
+        disabled={!canMessage || !vaultReady || !peerKeysReady}
         placeholder={`Message ${friendName.split(" ")[0]}…`}
       />
 
