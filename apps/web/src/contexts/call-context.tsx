@@ -22,6 +22,7 @@ import {
   markCallMissed,
   rejectCall as rejectCallRow,
 } from "@/lib/call/signaling";
+import { formatCallStartError } from "@/lib/call/errors";
 import { REALTIME_GRACE_MS, RING_TIMEOUT_MS } from "@/lib/call/timeouts";
 import type { Contact } from "@/lib/contacts/load-contacts";
 
@@ -47,6 +48,7 @@ type CallContextValue = {
   rejectCall: () => Promise<void>;
   endCall: () => Promise<void>;
   toggleMute: () => void;
+  clearCallError: () => void;
 };
 
 const CallContext = createContext<CallContextValue | null>(null);
@@ -308,18 +310,24 @@ export function CallProvider({
           );
         }, RING_TIMEOUT_MS);
       } catch (err) {
-        const message =
+        console.error("[call] start failed", err);
+        clearRingTimer();
+        setActiveCall(null);
+        setConnectedAt(null);
+        setUiState("idle");
+        setError(
           err instanceof MediaPermissionError
             ? "Microphone permission denied"
-            : err instanceof Error
-              ? err.message
-              : "Could not start call.";
-        setError(message);
-        resetCall();
+            : formatCallStartError(err),
+        );
       }
     },
-    [currentUserId, resetCall, showEnded],
+    [clearRingTimer, currentUserId, showEnded],
   );
+
+  const clearCallError = useCallback(() => {
+    setError(null);
+  }, []);
 
   const acceptCall = useCallback(async () => {
     const call = activeCallRef.current;
@@ -406,6 +414,7 @@ export function CallProvider({
         rejectCall,
         endCall,
         toggleMute,
+        clearCallError,
       }}
     >
       {children}

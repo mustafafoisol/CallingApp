@@ -79,7 +79,7 @@ export function ChatView({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [loadOlderError, setLoadOlderError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const { startCall, uiState } = useCall();
+  const { startCall, uiState, error: callError, clearCallError } = useCall();
   const [sendingImage, setSendingImage] = useState(false);
   const [linkPreviewUrl, setLinkPreviewUrl] = useState<string | null>(null);
   const [openActionsMessageId, setOpenActionsMessageId] = useState<
@@ -484,6 +484,19 @@ export function ChatView({
           void startCall(conversationId, friendId, friendName, friendAvatarUrl)
         }
       />
+
+      {callError && (
+        <p className="bg-[#FCEDE8] px-4 py-2 text-center text-sm text-[var(--danger)]" role="alert">
+          {callError}
+          <button
+            type="button"
+            className="ml-2 underline"
+            onClick={clearCallError}
+          >
+            Dismiss
+          </button>
+        </p>
+      )}
 
       {realtimeStatus !== "SUBSCRIBED" && realtimeStatus !== "connecting" && (
         <p className="bg-[#FCEDE8] px-4 py-2 text-center text-xs text-[var(--chat-muted)]">

@@ -78,9 +78,10 @@ export function ChatHeader({
           <button
             type="button"
             disabled={!canCall}
-            onClick={onStartCall}
+            onClick={() => onStartCall?.()}
             className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[var(--chat-hover)] text-[var(--chat-coral)] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Start voice call"
+            title={canCall ? "Start voice call" : "Add as friend to call"}
           >
             <Phone className="h-[17px] w-[17px]" />
           </button>
