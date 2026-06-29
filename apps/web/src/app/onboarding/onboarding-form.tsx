@@ -45,7 +45,6 @@ export function OnboardingForm() {
       }
 
       setPublicId(data.publicId);
-      router.refresh();
     } catch {
       setError("Failed to complete onboarding. Please try again.");
     } finally {
@@ -61,7 +60,13 @@ export function OnboardingForm() {
         <p className="text-sm text-muted">
           Share this ID so friends can add you.
         </p>
-        <Button className="w-full" onClick={() => router.push("/home")}>
+        <Button
+          className="w-full"
+          type="button"
+          onClick={() => {
+            window.location.assign("/home");
+          }}
+        >
           Go to Home
         </Button>
       </Card>
