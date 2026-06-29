@@ -21,9 +21,13 @@ export async function encryptMessage(
 ): Promise<EncryptedEnvelope> {
   const nonce = globalThis.crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await subtle.encrypt(
-    { name: "AES-GCM", iv: nonce, additionalData: aad },
+    {
+      name: "AES-GCM",
+      iv: nonce as BufferSource,
+      additionalData: aad as BufferSource,
+    },
     conversationKey,
-    plaintext,
+    plaintext as BufferSource,
   );
   return {
     ciphertext: new Uint8Array(ciphertext),
@@ -39,9 +43,13 @@ export async function decryptMessage(
 ): Promise<Uint8Array> {
   try {
     const plaintext = await subtle.decrypt(
-      { name: "AES-GCM", iv: nonce, additionalData: aad },
+      {
+        name: "AES-GCM",
+        iv: nonce as BufferSource,
+        additionalData: aad as BufferSource,
+      },
       conversationKey,
-      ciphertext,
+      ciphertext as BufferSource,
     );
     return new Uint8Array(plaintext);
   } catch {

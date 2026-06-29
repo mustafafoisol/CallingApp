@@ -3,11 +3,11 @@ import type { IdentityKeyPair } from "./types.js";
 const subtle = globalThis.crypto.subtle;
 
 export async function generateIdentityKeyPair(): Promise<IdentityKeyPair> {
-  const keyPair = await subtle.generateKey(
+  const keyPair = (await subtle.generateKey(
     { name: "X25519" },
     true,
     ["deriveBits"],
-  );
+  )) as CryptoKeyPair;
   return {
     publicKey: keyPair.publicKey,
     privateKey: keyPair.privateKey,
@@ -20,7 +20,7 @@ export async function exportPublicKeyRaw(publicKey: CryptoKey): Promise<Uint8Arr
 }
 
 export async function importPublicKeyRaw(raw: Uint8Array): Promise<CryptoKey> {
-  return subtle.importKey("raw", raw, { name: "X25519" }, true, []);
+  return subtle.importKey("raw", raw as BufferSource, { name: "X25519" }, true, []);
 }
 
 export async function exportPrivateKeyRaw(privateKey: CryptoKey): Promise<Uint8Array> {
@@ -31,7 +31,7 @@ export async function exportPrivateKeyRaw(privateKey: CryptoKey): Promise<Uint8A
 export async function importPrivateKeyRaw(raw: Uint8Array): Promise<CryptoKey> {
   return subtle.importKey(
     "pkcs8",
-    raw,
+    raw as BufferSource,
     { name: "X25519" },
     true,
     ["deriveBits"],

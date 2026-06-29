@@ -19,9 +19,13 @@ export async function deriveConversationKey(
   conversationId: string,
   peerKeyGeneration: number,
 ): Promise<CryptoKey> {
-  const baseKey = await subtle.importKey("raw", sharedSecret, "HKDF", false, [
-    "deriveKey",
-  ]);
+  const baseKey = await subtle.importKey(
+    "raw",
+    sharedSecret as BufferSource,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
 
   return subtle.deriveKey(
     {
