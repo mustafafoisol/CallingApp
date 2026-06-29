@@ -17,8 +17,12 @@ import { catchUpEnvelopes } from "@/lib/e2ee/catch-up";
 import { type MessageEnvelopeRow } from "@/lib/e2ee/envelope";
 import { listEnvelopesForRecipient } from "@/lib/e2ee/envelope-query";
 import { ensurePeerKeyAvailable } from "@/lib/e2ee/peer-key-sync";
+import {
+  hydrateVaultImageMessages,
+  resolveImageDisplayUrl,
+} from "@/lib/chat/image-cache";
 import { processEnvelope } from "@/lib/e2ee/receive";
-import { sendEncryptedText } from "@/lib/e2ee/send";
+import { sendEncryptedImage, sendEncryptedText } from "@/lib/e2ee/send";
 import { openVault } from "@/lib/vault/store";
 import {
   compressImageForChat,
@@ -44,10 +48,7 @@ import { hideMessage } from "@/lib/chat/hide-message";
 import { removeMessage } from "@/lib/chat/remove-message";
 import { subscribeToConversationEnvelopes } from "@/lib/chat/envelope-realtime";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
-import {
-  clearVaultConversationUnread,
-  recordVaultOutgoingMessage,
-} from "@/lib/contacts/vault-contact-sync";
+import { clearVaultConversationUnread } from "@/lib/contacts/vault-contact-sync";
 import { cn } from "@/lib/utils";
 import { useCall } from "@/contexts/call-context";
 import { useContactsContext } from "@/contexts/contacts-context";
@@ -118,6 +119,7 @@ export function ChatView({
     (row: MessageEnvelopeRow) => Promise<void>
   >(async () => undefined);
   const pollEnvelopesRef = useRef<() => Promise<void>>(async () => undefined);
+  const imageObjectUrlsRef = useRef<Set<string>>(new Set());
 
   const markRead = useCallback(() => {
     const supabase = createClient();
@@ -154,6 +156,15 @@ export function ChatView({
   }, [markRead]);
 
   useEffect(() => {
+    return () => {
+      for (const url of imageObjectUrlsRef.current) {
+        URL.revokeObjectURL(url);
+      }
+      imageObjectUrlsRef.current.clear();
+    };
+  }, [conversationId]);
+
+  useEffect(() => {
     let cancelled = false;
 
     if (activeConversationRef.current !== conversationId) {
@@ -182,9 +193,19 @@ export function ChatView({
           console.error("[chat] envelope catch-up failed", catchUpErr);
         }
         const loaded = await loadVaultMessages(conversationId, INITIAL_MESSAGE_LIMIT);
+        const hydrated = await hydrateVaultImageMessages(
+          vault,
+          conversationId,
+          loaded,
+        );
         if (cancelled) return;
+        for (const message of hydrated) {
+          if (message.attachment_url?.startsWith("blob:")) {
+            imageObjectUrlsRef.current.add(message.attachment_url);
+          }
+        }
         scrollToBottomRef.current = true;
-        setMessages((prev) => mergeLoadedVaultMessages(prev, loaded));
+        setMessages((prev) => mergeLoadedVaultMessages(prev, hydrated));
         setHasMore(loaded.length >= INITIAL_MESSAGE_LIMIT);
         vaultInitializedRef.current = true;
         setVaultReady(true);
@@ -231,11 +252,24 @@ export function ChatView({
       const vault = await openVault(currentUserId);
       const result = await processEnvelope(supabase, vault, row);
       if (result.skipped) return;
+
+      let attachmentUrl: string | null = null;
+      if (row.type === "image") {
+        attachmentUrl = await resolveImageDisplayUrl(
+          vault,
+          result.messageId,
+          row.conversation_id,
+          result.body,
+        );
+        imageObjectUrlsRef.current.add(attachmentUrl);
+      }
+
       reconcileMessage({
         id: result.messageId,
         sender_id: row.sender_id,
-        body: result.body,
+        body: row.type === "image" ? "" : result.body,
         type: row.type,
+        attachment_url: attachmentUrl,
         created_at: result.createdAt,
       });
     },
@@ -302,15 +336,26 @@ export function ChatView({
         oldest,
         OLDER_MESSAGE_PAGE_SIZE,
       );
+      const vault = await openVault(currentUserId);
+      const hydrated = await hydrateVaultImageMessages(
+        vault,
+        conversationId,
+        older,
+      );
+      for (const message of hydrated) {
+        if (message.attachment_url?.startsWith("blob:")) {
+          imageObjectUrlsRef.current.add(message.attachment_url);
+        }
+      }
 
       setMessages((prev) => {
         const existing = new Set(prev.map((m) => m.id));
-        const unique = older.filter(
+        const unique = hydrated.filter(
           (m) => !existing.has(m.id) && !isHidden(m.id),
         );
         return [...unique, ...prev];
       });
-      setHasMore(older.length === OLDER_MESSAGE_PAGE_SIZE);
+      setHasMore(hydrated.length === OLDER_MESSAGE_PAGE_SIZE);
     } catch (err) {
       pendingScrollRestore.current = null;
       setLoadOlderError(
@@ -437,43 +482,43 @@ export function ChatView({
         compressed,
         conversationId,
       );
-      const { data, error } = await supabase
-        .from("messages")
-        .insert({
-          conversation_id: conversationId,
-          sender_id: currentUserId,
-          body: "",
-          type: "image",
-          attachment_url: attachmentUrl,
-        })
-        .select(
-          "id, sender_id, body, type, attachment_url, created_at, removed_at",
-        )
-        .single();
-
-      if (error) throw error;
+      const vault = await openVault(currentUserId);
+      const result = await sendEncryptedImage(supabase, vault, {
+        conversationId,
+        recipientId: friendId,
+        senderId: currentUserId,
+        messageId: clientId,
+        imageUrl: attachmentUrl,
+        localBlob: compressed,
+      });
+      const displayUrl = await resolveImageDisplayUrl(
+        vault,
+        clientId,
+        conversationId,
+        attachmentUrl,
+      );
+      imageObjectUrlsRef.current.add(displayUrl);
 
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       pendingImageFilesRef.current.delete(clientId);
 
-      if (data) {
-        scrollToBottomRef.current = true;
-        setMessages((prev) => confirmPendingMessage(prev, clientId, data));
-        const vault = await openVault(currentUserId);
-        await recordVaultOutgoingMessage(
-          vault,
-          conversationId,
-          "",
-          "image",
-          data.created_at,
-        );
-        notifyLocalMessage({
-          conversationId,
+      scrollToBottomRef.current = true;
+      setMessages((prev) =>
+        confirmPendingMessage(prev, clientId, {
+          id: clientId,
+          sender_id: currentUserId,
           body: "",
           type: "image",
-          createdAt: data.created_at,
-        });
-      }
+          attachment_url: displayUrl,
+          created_at: result.createdAt,
+        }),
+      );
+      notifyLocalMessage({
+        conversationId,
+        body: "",
+        type: "image",
+        createdAt: result.createdAt,
+      });
     } catch (err) {
       setMessages((prev) => markMessageFailed(prev, clientId));
       if (!existingClientId) {
