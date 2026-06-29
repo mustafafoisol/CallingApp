@@ -25,6 +25,7 @@ import {
 } from "@/lib/call/signaling";
 import { formatCallStartError } from "@/lib/call/errors";
 import { REALTIME_GRACE_MS, RING_TIMEOUT_MS } from "@/lib/call/timeouts";
+import { isVoiceCallsEnabled } from "@/lib/call/feature-flag";
 import type { Contact } from "@/lib/contacts/load-contacts";
 
 export type CallUiState =
@@ -484,8 +485,49 @@ export function CallProvider({
   );
 }
 
+const disabledCallContext: CallContextValue = {
+  uiState: "idle",
+  activeCall: null,
+  remoteName: "",
+  remoteAvatarUrl: null,
+  muted: false,
+  error: null,
+  statusMessage: null,
+  connectedAt: null,
+  startCall: async () => undefined,
+  acceptCall: async () => undefined,
+  rejectCall: async () => undefined,
+  endCall: async () => undefined,
+  toggleMute: () => undefined,
+  clearCallError: () => undefined,
+};
+
+export function CallShell({
+  currentUserId,
+  contacts,
+  children,
+}: {
+  currentUserId: string;
+  contacts: Contact[];
+  children: ReactNode;
+}) {
+  if (!isVoiceCallsEnabled()) {
+    return (
+      <CallContext.Provider value={disabledCallContext}>
+        {children}
+      </CallContext.Provider>
+    );
+  }
+
+  return (
+    <CallProvider currentUserId={currentUserId} contacts={contacts}>
+      {children}
+    </CallProvider>
+  );
+}
+
 export function useCall() {
   const value = useContext(CallContext);
-  if (!value) throw new Error("useCall must be used within CallProvider");
+  if (!value) throw new Error("useCall must be used within CallShell");
   return value;
 }

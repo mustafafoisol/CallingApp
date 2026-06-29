@@ -43,6 +43,7 @@ import { removeMessage } from "@/lib/chat/remove-message";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
 import { cn } from "@/lib/utils";
 import { useCall } from "@/contexts/call-context";
+import { isVoiceCallsEnabled } from "@/lib/call/feature-flag";
 
 export function ChatView({
   conversationId,
@@ -479,7 +480,7 @@ export function ChatView({
         friendAvatarUrl={friendAvatarUrl}
         lastMessageAt={lastMessageAt}
         variant="classic"
-        canCall={canMessage && uiState === "idle"}
+        canCall={isVoiceCallsEnabled() && canMessage && uiState === "idle"}
         onStartCall={() =>
           void startCall(conversationId, friendId, friendName, friendAvatarUrl)
         }
