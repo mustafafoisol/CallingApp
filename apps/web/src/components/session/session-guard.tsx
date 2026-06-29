@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+import { endActiveCallOnSessionReplaced } from "@/lib/call/active-call-registry";
 import { setDeviceId } from "@/lib/device-id";
 import { createSessionListener } from "@/lib/session/listener";
 import { handleSessionReplaced } from "@/lib/session/purge";
@@ -39,6 +40,7 @@ export function SessionGuard({ children }: { children: ReactNode }) {
           user.id,
           session.cookieDeviceId,
           () => {
+            endActiveCallOnSessionReplaced();
             void handleSessionReplaced(user.id, supabase, router);
           },
         );
