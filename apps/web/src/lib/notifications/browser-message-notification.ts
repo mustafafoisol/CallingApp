@@ -52,12 +52,14 @@ export function showMessageNotification({
   body,
   iconUrl,
   chatUrl,
+  tagPrefix = "message",
 }: {
   messageId: string;
   title: string;
   body: string;
   iconUrl: string | null;
   chatUrl: string;
+  tagPrefix?: string;
 }): void {
   if (!isNotificationSupported()) return;
 
@@ -65,7 +67,7 @@ export function showMessageNotification({
     body,
     icon: iconUrl ?? DEFAULT_ICON,
     badge: DEFAULT_ICON,
-    tag: `message-${messageId}`,
+    tag: `${tagPrefix}-${messageId}`,
     data: { url: chatUrl },
   });
 
@@ -78,4 +80,30 @@ export function showMessageNotification({
     }
     notification.close();
   };
+}
+
+export function maybeShowFriendAcceptedNotification({
+  friendshipId,
+  friendName,
+  iconUrl,
+  chatUrl,
+}: {
+  friendshipId: string;
+  friendName: string;
+  iconUrl: string | null;
+  chatUrl: string;
+}): void {
+  if (!isNotificationSupported()) return;
+  if (Notification.permission !== "granted") return;
+  if (!isBrowserNotificationsEnabled()) return;
+  if (!isTabHidden()) return;
+
+  showMessageNotification({
+    messageId: friendshipId,
+    title: friendName,
+    body: "Accepted your friend request",
+    iconUrl,
+    chatUrl,
+    tagPrefix: "friend-accepted",
+  });
 }

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  maybeShowFriendAcceptedNotification,
   maybeShowMessageNotification,
   showMessageNotification,
 } from "./browser-message-notification";
@@ -93,5 +94,21 @@ describe("browser message notifications", () => {
     });
 
     expect(createdNotifications).toHaveLength(0);
+  });
+
+  it("shows a friend-accepted notification when the tab is hidden", () => {
+    maybeShowFriendAcceptedNotification({
+      friendshipId: "friend-1",
+      friendName: "Alex",
+      iconUrl: null,
+      chatUrl: "/chat/conv-1",
+    });
+
+    expect(createdNotifications).toHaveLength(1);
+    expect(createdNotifications[0]?.title).toBe("Alex");
+    expect(createdNotifications[0]?.options.body).toBe(
+      "Accepted your friend request",
+    );
+    expect(createdNotifications[0]?.options.tag).toBe("friend-accepted-friend-1");
   });
 });
