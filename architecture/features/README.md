@@ -15,4 +15,10 @@ Each document describes one shipped capability: user flows, implementation map, 
 | 9 | UI Shell | Shipped | [ui-shell.md](./ui-shell.md) |
 | 10 | Infrastructure | Partial (PWA incomplete) | [infrastructure.md](./infrastructure.md) |
 
+## In progress
+
+| Feature | Status | Doc |
+|---------|--------|-----|
+| E2EE Local Chat | Partial — crypto, vault, relay libs; UI pending | [e2ee-local-chat.md](./e2ee-local-chat.md) |
+
 Read [../README.md](../README.md) for the system-wide overview.

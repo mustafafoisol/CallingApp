@@ -5,6 +5,7 @@ Manual and scenario-based test documentation for CallingApp features. Use these 
 | Feature | Architecture | Test plan | Manual guide |
 |---------|--------------|-----------|--------------|
 | Realtime Chat | [chat/architecture.md](./chat/architecture.md) | [chat/test-plan.md](./chat/test-plan.md) | [chat/manual-testing.md](./chat/manual-testing.md) |
+| E2EE Local Chat | [../features/e2ee-local-chat.md](../features/e2ee-local-chat.md) | — | [e2ee/manual-testing.md](./e2ee/manual-testing.md) |
 
 **Broken chat?** → [chat/troubleshooting.md](./chat/troubleshooting.md)
 
