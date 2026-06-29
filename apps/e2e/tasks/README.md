@@ -6,14 +6,14 @@ Tasks are ordered by dependency. Each phase should land as small commits (≤100
 
 | # | Task | Depends on | Est. effort | Status |
 |---|------|------------|-------------|--------|
-| 0 | [00-purge-and-schema](./00-purge-and-schema.md) | — | Medium | Partial |
+| 0 | [00-purge-and-schema](./00-purge-and-schema.md) | — | Medium | Partial (SQL written, not applied) |
 | 1 | [01-crypto-module](./01-crypto-module.md) | 0 | Medium | Done |
 | 2 | [02-indexeddb-vault](./02-indexeddb-vault.md) | 1 | Medium | Done |
-| 3 | [03-single-device-session](./03-single-device-session.md) | 0 | Medium | Partial |
-| 4 | [04-encrypted-relay](./04-encrypted-relay.md) | 1, 2 | Large | Partial |
-| 5 | [05-ui-rewire](./05-ui-rewire.md) | 2, 4 | Large | Pending |
-| 6 | [06-encrypted-images](./06-encrypted-images.md) | 4 | Medium | Partial |
-| 7 | [07-architecture-doc](./07-architecture-doc.md) | All | Small | In progress |
+| 3 | [03-single-device-session](./03-single-device-session.md) | 0 | Medium | Done |
+| 4 | [04-encrypted-relay](./04-encrypted-relay.md) | 1, 2 | Large | Done (libs + chat wired) |
+| 5 | [05-ui-rewire](./05-ui-rewire.md) | 2, 4 | Large | Partial (chat done; contacts pending) |
+| 6 | [06-encrypted-images](./06-encrypted-images.md) | 4 | Medium | Partial (stubs only) |
+| 7 | [07-architecture-doc](./07-architecture-doc.md) | All | Small | Done |
 
 ## Dependency graph
 
