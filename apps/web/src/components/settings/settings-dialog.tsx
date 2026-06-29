@@ -12,6 +12,7 @@ import {
   compressImageForAvatar,
   ImageCompressionError,
 } from "@/lib/chat/compress-image";
+import { purgeLocalData } from "@/lib/session/purge";
 import { createClient } from "@/lib/supabase/client";
 
 export function SettingsDialog({
@@ -152,6 +153,14 @@ export function SettingsDialog({
 
   async function logout() {
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      await purgeLocalData(user.id);
+    }
+
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
