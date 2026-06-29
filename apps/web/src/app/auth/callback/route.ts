@@ -10,6 +10,19 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
+function profileBindFailureDetail(message?: string): string {
+  const msg = message?.toLowerCase() ?? "";
+  if (
+    msg.includes("active_device_id") ||
+    msg.includes("session_version") ||
+    msg.includes("active_session_at") ||
+    msg.includes("schema cache")
+  ) {
+    return "schema_outdated";
+  }
+  return "profile_bind";
+}
+
 function authErrorRedirect(
   origin: string,
   detail: string,
@@ -107,7 +120,10 @@ export async function GET(request: NextRequest) {
 
     if (updateError || !updatedProfile) {
       await supabase.auth.signOut();
-      return authErrorRedirect(origin, "profile_bind");
+      return authErrorRedirect(
+        origin,
+        profileBindFailureDetail(updateError?.message),
+      );
     }
 
     if (admin) {
