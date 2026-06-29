@@ -18,6 +18,12 @@ import {
 } from "@/lib/chat/messages";
 import { loadContacts, type Contact } from "@/lib/contacts/load-contacts";
 import {
+  clearVaultConversationUnread,
+  hydrateContactsFromVault,
+  patchContactMessage,
+  previewForMessage,
+} from "@/lib/contacts/vault-contact-sync";
+import {
   loadIncomingPending,
   loadOutgoingPending,
 } from "@/lib/contacts/load-pending";
@@ -27,6 +33,10 @@ import type {
 } from "@/lib/contacts/pending-types";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
 import { bootstrapAndPrefetchPeer } from "@/lib/e2ee/bootstrap-client";
+import { normalizeEnvelopeRow } from "@/lib/e2ee/envelope";
+import { processEnvelope } from "@/lib/e2ee/receive";
+import { openVault } from "@/lib/vault/store";
+import type { MessageType } from "@calling-app/core";
 import { parseUserEventRow } from "@/lib/events/parse-user-event";
 import {
   maybeShowFriendAcceptedNotification,
@@ -40,6 +50,12 @@ interface ContactsContextValue {
   incomingPending: IncomingPendingRequest[];
   outgoingPending: OutgoingPendingRequest[];
   addOutgoingPending: (request: OutgoingPendingRequest) => void;
+  notifyLocalMessage: (params: {
+    conversationId: string;
+    body: string;
+    type: MessageType;
+    createdAt: string;
+  }) => void;
   refreshContacts: () => Promise<void>;
   refreshPending: () => Promise<void>;
   removeIncomingPending: (friendshipId: string) => void;
@@ -48,18 +64,10 @@ interface ContactsContextValue {
 
 const ContactsContext = createContext<ContactsContextValue | null>(null);
 
-function messagePreview(message: MessageRow): string {
+function legacyMessagePreview(message: MessageRow): string {
   if (message.removed_at) return REMOVED_MESSAGE_LABEL;
   if (message.type === "image") return IMAGE_MESSAGE_PREVIEW;
   return message.body;
-}
-
-function sortContacts(contacts: Contact[]): Contact[] {
-  return [...contacts].sort((a, b) => {
-    const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-    const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
-    return bTime - aTime;
-  });
 }
 
 export function ContactsProvider({
@@ -95,10 +103,53 @@ export function ContactsProvider({
     setContacts(initialContacts);
   }, [initialContacts]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const vault = await openVault(currentUserId);
+        const hydrated = await hydrateContactsFromVault(vault, initialContacts);
+        if (!cancelled) setContacts(hydrated);
+      } catch (error) {
+        console.error("[contacts] vault hydrate failed", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId, initialContacts]);
+
+  const notifyLocalMessage = useCallback(
+    (params: {
+      conversationId: string;
+      body: string;
+      type: MessageType;
+      createdAt: string;
+    }) => {
+      setContacts((prev) =>
+        patchContactMessage(prev, params.conversationId, {
+          preview: previewForMessage(params.body, params.type),
+          lastMessageAt: params.createdAt,
+          unreadDelta: 0,
+          isActive: false,
+        }),
+      );
+    },
+    [],
+  );
+
   const refreshContacts = useCallback(async () => {
     const supabase = createClient();
     const nextContacts = await loadContacts(supabase, currentUserId);
-    setContacts(nextContacts);
+    try {
+      const vault = await openVault(currentUserId);
+      setContacts(await hydrateContactsFromVault(vault, nextContacts));
+    } catch (error) {
+      console.error("[contacts] vault refresh failed", error);
+      setContacts(nextContacts);
+    }
   }, [currentUserId]);
 
   const refreshPending = useCallback(async () => {
@@ -148,11 +199,15 @@ export function ContactsProvider({
     );
 
     const supabase = createClient();
-    void markConversationRead(supabase, activeConversationId, currentUserId).catch(
-      (error) => {
+    void (async () => {
+      try {
+        await markConversationRead(supabase, activeConversationId, currentUserId);
+        const vault = await openVault(currentUserId);
+        await clearVaultConversationUnread(vault, activeConversationId);
+      } catch (error) {
         console.error("[contacts] mark read failed", error);
-      },
-    );
+      }
+    })();
   }, [activeConversationId, currentUserId]);
 
   useEffect(() => {
@@ -209,6 +264,58 @@ export function ContactsProvider({
       }
     }
 
+    async function handleIncomingEnvelope(
+      row: ReturnType<typeof normalizeEnvelopeRow>,
+    ) {
+      if (row.sender_id === currentUserId) return;
+
+      const isActive =
+        row.conversation_id === activeConversationIdRef.current;
+
+      if (
+        shouldPlayMessageSound({
+          senderId: row.sender_id,
+          currentUserId,
+          isActive,
+        })
+      ) {
+        playMessageSound();
+      }
+
+      try {
+        const vault = await openVault(currentUserId);
+        const result = await processEnvelope(supabase, vault, row);
+        const vaultConv = await vault.conversations.get(row.conversation_id);
+        const preview = previewForMessage(result.body, row.type);
+
+        if (!isActive) {
+          const contact = contactsRef.current.find(
+            (item) => item.conversationId === row.conversation_id,
+          );
+
+          maybeShowMessageNotification({
+            messageId: row.id,
+            conversationId: row.conversation_id,
+            senderName: contact?.friend.display_name ?? "New message",
+            body: preview,
+            iconUrl: contact?.friend.avatar_url ?? null,
+            chatUrl: `/chat/${row.conversation_id}`,
+          });
+        }
+
+        setContacts((prev) =>
+          patchContactMessage(prev, row.conversation_id, {
+            preview,
+            lastMessageAt: result.createdAt,
+            isActive,
+            unreadCount: isActive ? 0 : vaultConv?.unreadCount,
+          }),
+        );
+      } catch (error) {
+        console.error("[contacts] envelope preview failed", error);
+      }
+    }
+
     async function subscribe() {
       const {
         data: { session },
@@ -225,7 +332,9 @@ export function ContactsProvider({
             const message = payload.new as MessageRow & {
               conversation_id: string;
             };
-            if (message.sender_id === currentUserId) return;
+            if (message.sender_id === currentUserId || message.type === "text") {
+              return;
+            }
 
             const isActive =
               message.conversation_id === activeConversationIdRef.current;
@@ -249,27 +358,36 @@ export function ContactsProvider({
                 messageId: message.id,
                 conversationId: message.conversation_id,
                 senderName: contact?.friend.display_name ?? "New message",
-                body: messagePreview(message),
+                body: legacyMessagePreview(message),
                 iconUrl: contact?.friend.avatar_url ?? null,
                 chatUrl: `/chat/${message.conversation_id}`,
               });
             }
 
-            setContacts((prev) => {
-              const next = prev.map((contact) => {
-                if (contact.conversationId !== message.conversation_id) {
-                  return contact;
-                }
-
-                return {
-                  ...contact,
-                  lastMessageAt: message.created_at,
-                  preview: messagePreview(message),
-                  unreadCount: isActive ? 0 : contact.unreadCount + 1,
-                };
-              });
-
-              return sortContacts(next);
+            setContacts((prev) =>
+              patchContactMessage(prev, message.conversation_id, {
+                preview: legacyMessagePreview(message),
+                lastMessageAt: message.created_at,
+                isActive,
+                unreadDelta: isActive ? 0 : 1,
+              }),
+            );
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "message_envelopes",
+            filter: `recipient_id=eq.${currentUserId}`,
+          },
+          (payload) => {
+            const row = normalizeEnvelopeRow(
+              payload.new as Parameters<typeof normalizeEnvelopeRow>[0],
+            );
+            void handleIncomingEnvelope(row).catch((error) => {
+              console.error("[contacts] envelope realtime failed", error);
             });
           },
         )
@@ -320,6 +438,7 @@ export function ContactsProvider({
       incomingPending,
       outgoingPending,
       addOutgoingPending,
+      notifyLocalMessage,
       refreshContacts,
       refreshPending,
       removeIncomingPending,
@@ -330,6 +449,7 @@ export function ContactsProvider({
       incomingPending,
       outgoingPending,
       addOutgoingPending,
+      notifyLocalMessage,
       refreshContacts,
       refreshPending,
       removeIncomingPending,
