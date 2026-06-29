@@ -118,9 +118,9 @@ sequenceDiagram
 
 ---
 
-## Phase 3 — First chat open: device identity bootstrap
+## Phase 3 — Device identity bootstrap (login + chat open)
 
-Triggered when **either** user navigates to `/chat/[id]` after accept. `ChatView` runs `initVault()` on mount.
+Triggered when a user enters the authenticated app (`E2eeIdentityBootstrap` in `(app)` layout) and again when opening a chat (`ChatView.initVault()`).
 
 ```mermaid
 sequenceDiagram
@@ -137,7 +137,7 @@ sequenceDiagram
     CV->>S: UPSERT user_crypto_keys (user_id, identity_pubkey, key_generation=1)
     S->>DB: row created — pubkey visible to all authenticated users
   else Identity already in vault
-    CV->>CV: return existing (no server update)
+    CV->>S: UPSERT user_crypto_keys (re-publish IK_pub)
   end
 ```
 
@@ -147,9 +147,10 @@ sequenceDiagram
 
 ### Important behaviors
 
-1. **First open only** — if `device_identity` exists locally, the server row is **not** refreshed.
-2. **Not tied to login or friend accept** — only runs inside `ChatView.initVault()`.
+1. **Runs after login** — `E2eeIdentityBootstrap` in `(app)` layout publishes (or re-publishes) `IK_pub`.
+2. **Re-syncs on every bootstrap** — if `device_identity` exists locally, pubkey is still upserted to `user_crypto_keys`.
 3. **Private key never leaves device** — only `IK_pub` is uploaded.
+4. **Friend flows prefetch peer keys** — lookup, send request, and accept call `bootstrapAndPrefetchPeer`.
 
 ### IndexedDB store: `device_identity`
 
