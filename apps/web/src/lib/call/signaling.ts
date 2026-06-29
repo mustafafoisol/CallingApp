@@ -81,6 +81,10 @@ export const rejectCall = (s: SupabaseClient, id: string, u: string) =>
   transition(s, id, u, "rejected");
 export const endCall = (s: SupabaseClient, id: string, u: string) =>
   transition(s, id, u, "ended");
+export const markCallMissed = (s: SupabaseClient, id: string, u: string) =>
+  transition(s, id, u, "missed");
+export const markCallBusy = (s: SupabaseClient, id: string, u: string) =>
+  transition(s, id, u, "busy");
 
 export async function writeOfferSdp(
   supabase: SupabaseClient,
@@ -133,25 +137,45 @@ export function subscribeToCall(
   return () => void supabase.removeChannel(channel);
 }
 
+function waitForSdpField(
+  supabase: SupabaseClient,
+  callId: string,
+  field: "offer_sdp" | "answer_sdp",
+  timeoutMs: number,
+  label: string,
+) {
+  return async () => {
+    const current = await getCall(supabase, callId);
+    const existing = current[field];
+    if (existing) return existing;
+    return new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        stop();
+        reject(new Error(`Timed out waiting for ${label}`));
+      }, timeoutMs);
+      const stop = subscribeToCall(supabase, callId, {
+        onUpdate: (call) => {
+          const sdp = call[field];
+          if (!sdp) return;
+          clearTimeout(timer);
+          stop();
+          resolve(sdp);
+        },
+      });
+    });
+  };
+}
+
+export const waitForOfferSdp = (
+  supabase: SupabaseClient,
+  callId: string,
+  timeoutMs = 45_000,
+) => waitForSdpField(supabase, callId, "offer_sdp", timeoutMs, "offer SDP")();
+
 export async function waitForAnswerSdp(
   supabase: SupabaseClient,
   callId: string,
   timeoutMs = 45_000,
 ) {
-  const current = await getCall(supabase, callId);
-  if (current.answer_sdp) return current.answer_sdp;
-  return new Promise<string>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      stop();
-      reject(new Error("Timed out waiting for answer SDP"));
-    }, timeoutMs);
-    const stop = subscribeToCall(supabase, callId, {
-      onUpdate: (call) => {
-        if (!call.answer_sdp) return;
-        clearTimeout(timer);
-        stop();
-        resolve(call.answer_sdp);
-      },
-    });
-  });
+  return waitForSdpField(supabase, callId, "answer_sdp", timeoutMs, "answer SDP")();
 }
