@@ -36,7 +36,7 @@ export async function deriveConversationKey(
     },
     baseKey,
     { name: "AES-GCM", length: 256 },
-    false,
+    true,
     ["encrypt", "decrypt"],
   );
 }

@@ -1,9 +1,13 @@
+import { authFailureMessage } from "@/lib/auth/callback-errors";
+
 export function LoginAlerts({
   error,
   reason,
+  detail,
 }: {
   error?: string;
   reason?: string;
+  detail?: string;
 }) {
   if (!error && !reason) return null;
 
@@ -11,7 +15,7 @@ export function LoginAlerts({
     reason === "session_replaced"
       ? "You were signed out because this account was opened on another device."
       : error === "auth"
-        ? "Sign-in failed. Please try again."
+        ? (authFailureMessage(detail) ?? "Sign-in failed. Please try again.")
         : "Something went wrong. Please try again.";
 
   return (

@@ -40,21 +40,17 @@ export async function sendEncryptedText(
   const encrypted = await encryptMessage(ck, new TextEncoder().encode(body), aad);
   const createdAt = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("message_envelopes")
-    .insert({
-      id: messageId,
-      conversation_id: conversationId,
-      sender_id: senderId,
-      recipient_id: recipientId,
-      type: "text",
-      ciphertext: serializeBytea(encrypted.ciphertext),
-      nonce: serializeBytea(encrypted.nonce),
-      sender_key_generation: identity.keyGeneration,
-      attachment_id: null,
-    })
-    .select("id, created_at")
-    .single();
+  const { error } = await supabase.from("message_envelopes").insert({
+    id: messageId,
+    conversation_id: conversationId,
+    sender_id: senderId,
+    recipient_id: recipientId,
+    type: "text",
+    ciphertext: serializeBytea(encrypted.ciphertext),
+    nonce: serializeBytea(encrypted.nonce),
+    sender_key_generation: identity.keyGeneration,
+    attachment_id: null,
+  });
   if (error) throw error;
 
   await vault.messages.put({
@@ -64,9 +60,9 @@ export async function sendEncryptedText(
     body,
     type: "text",
     attachmentId: null,
-    createdAt: data.created_at ?? createdAt,
+    createdAt,
     removedAt: null,
   });
 
-  return { envelopeId: data.id, createdAt: data.created_at ?? createdAt };
+  return { envelopeId: messageId, createdAt };
 }

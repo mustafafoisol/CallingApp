@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { Plus, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ChatAvatar } from "@/components/chat/avatar";
+import { bootstrapAndPrefetchPeer } from "@/lib/e2ee/bootstrap-client";
+import { createClient } from "@/lib/supabase/client";
 import { PendingRequestsPanel } from "./pending-requests-panel";
 
 interface LookupProfile {
@@ -90,6 +92,14 @@ export function AddFriendDialog({
 
     setProfile(data.profile);
     setFriendshipStatus(data.friendship?.status ?? null);
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      void bootstrapAndPrefetchPeer(user.id, data.profile.id);
+    }
   }
 
   async function sendRequest() {
@@ -113,6 +123,14 @@ export function AddFriendDialog({
 
     setSuccess("Friend request sent");
     setFriendshipStatus("pending");
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      void bootstrapAndPrefetchPeer(user.id, profile.id);
+    }
   }
 
   function handleBackdropClick(event: React.MouseEvent) {

@@ -8,6 +8,7 @@ import {
 import {
   loadProfileSession,
   sessionCookiesMatch,
+  sessionReplacedJson,
   sessionReplacedRedirect,
 } from "@/lib/session/validate";
 
@@ -46,6 +47,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const isApiRoute = pathname.startsWith("/api/");
   const isAuthRoute =
     pathname.startsWith("/login") || pathname.startsWith("/auth");
   const isOnboarding = pathname.startsWith("/onboarding");
@@ -55,7 +57,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/friends") ||
     pathname.startsWith("/settings");
 
-  if (!user && isProtected) {
+  if (!user && (isProtected || isOnboarding)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -64,20 +66,28 @@ export async function updateSession(request: NextRequest) {
   let profile = null;
   if (user && !pathname.startsWith("/auth/callback")) {
     profile = await loadProfileSession(supabase, user.id);
+    const needsOnboarding = !profile?.public_id || !profile?.display_name;
     const cookieSv = request.cookies.get(SESSION_VERSION_COOKIE)?.value;
     const cookieDid = request.cookies.get(SESSION_DEVICE_COOKIE)?.value;
-    if (!sessionCookiesMatch(cookieSv, cookieDid, profile)) {
+    if (
+      !needsOnboarding &&
+      !sessionCookiesMatch(cookieSv, cookieDid, profile)
+    ) {
+      if (isApiRoute) {
+        return sessionReplacedJson(supabase);
+      }
       return sessionReplacedRedirect(request, supabase);
     }
   }
 
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/home";
+    const needsOnboarding = !profile?.public_id || !profile?.display_name;
+    url.pathname = needsOnboarding ? "/onboarding" : "/home";
     return NextResponse.redirect(url);
   }
 
-  if (user && isProtected) {
+  if (user && (isProtected || isOnboarding)) {
     const needsOnboarding = !profile?.public_id || !profile?.display_name;
     if (needsOnboarding && !isOnboarding) {
       const url = request.nextUrl.clone();

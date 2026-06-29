@@ -30,18 +30,53 @@ async function exportAesKey(key: CryptoKey): Promise<Uint8Array> {
   return new Uint8Array(await subtle.exportKey("raw", key));
 }
 
-async function fetchPeerCryptoKey(
+export async function tryFetchPeerCryptoKey(
   supabase: SupabaseClient,
   peerUserId: string,
-): Promise<UserCryptoKeyRow> {
+): Promise<UserCryptoKeyRow | null> {
   const { data, error } = await supabase
     .from("user_crypto_keys")
     .select("user_id, identity_pubkey, key_generation, updated_at")
     .eq("user_id", peerUserId)
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error(`Peer ${peerUserId} has no published crypto key`);
-  return data as UserCryptoKeyRow;
+  return (data as UserCryptoKeyRow | null) ?? null;
+}
+
+async function fetchPeerCryptoKey(
+  supabase: SupabaseClient,
+  peerUserId: string,
+): Promise<UserCryptoKeyRow> {
+  const peer = await tryFetchPeerCryptoKey(supabase, peerUserId);
+  if (!peer) throw new Error(`Peer ${peerUserId} has no published crypto key`);
+  return peer;
+}
+
+export async function prefetchPeerPublicKey(
+  vault: CallingAppVault,
+  supabase: SupabaseClient,
+  peerUserId: string,
+): Promise<boolean> {
+  const peer = await tryFetchPeerCryptoKey(supabase, peerUserId);
+  if (!peer) return false;
+
+  const peerPubkey = parseBytea(peer.identity_pubkey);
+  const pinned = await vault.trusted_pubkeys.get(peerUserId);
+  if (
+    !pinned ||
+    pinned.keyGeneration !== peer.key_generation ||
+    pinned.identityPubkey.length !== peerPubkey.length ||
+    !pinned.identityPubkey.every((byte, index) => byte === peerPubkey[index])
+  ) {
+    await vault.trusted_pubkeys.put({
+      userId: peerUserId,
+      identityPubkey: peerPubkey,
+      keyGeneration: peer.key_generation,
+      pinnedAt: new Date().toISOString(),
+    });
+  }
+
+  return true;
 }
 
 export async function loadConversationKey(

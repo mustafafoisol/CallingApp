@@ -1,6 +1,16 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+
 import { generateUniquePublicId } from "@/lib/profile";
+import { persistOnboardingProfile } from "@/lib/profile/persist-onboarding";
+import {
+  DEVICE_ID_COOKIE,
+  SESSION_COOKIE_OPTIONS,
+  SESSION_DEVICE_COOKIE,
+  SESSION_VERSION_COOKIE,
+} from "@/lib/session/cookies";
+import { sessionCookiesMatch } from "@/lib/session/validate";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -31,14 +41,55 @@ export async function POST(request: Request) {
     return Boolean(data);
   });
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ display_name: displayName, public_id: publicId })
-    .eq("id", user.id);
+  const saved = await persistOnboardingProfile(
+    supabase,
+    user.id,
+    displayName,
+    publicId,
+  );
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if ("error" in saved) {
+    return NextResponse.json({ error: saved.error }, { status: 500 });
   }
 
-  return NextResponse.json({ publicId });
+  const cookieStore = await cookies();
+  const cookieSv = cookieStore.get(SESSION_VERSION_COOKIE)?.value;
+  const cookieDid = cookieStore.get(SESSION_DEVICE_COOKIE)?.value;
+  const deviceHint = cookieStore.get(DEVICE_ID_COOKIE)?.value;
+  const deviceId =
+    saved.data.active_device_id ?? deviceHint ?? crypto.randomUUID();
+  const sessionVersion = saved.data.session_version ?? 1;
+
+  if (!saved.data.active_device_id) {
+    const { error: bindError } = await supabase
+      .from("profiles")
+      .update({
+        active_device_id: deviceId,
+        session_version: sessionVersion,
+        active_session_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (bindError) {
+      return NextResponse.json({ error: bindError.message }, { status: 500 });
+    }
+  }
+
+  const response = NextResponse.json({ publicId: saved.data.public_id });
+  if (
+    !sessionCookiesMatch(cookieSv, cookieDid, {
+      session_version: sessionVersion,
+      active_device_id: deviceId,
+    })
+  ) {
+    response.cookies.set(
+      SESSION_VERSION_COOKIE,
+      String(sessionVersion),
+      SESSION_COOKIE_OPTIONS,
+    );
+    response.cookies.set(SESSION_DEVICE_COOKIE, deviceId, SESSION_COOKIE_OPTIONS);
+    response.cookies.delete(DEVICE_ID_COOKIE);
+  }
+
+  return response;
 }
