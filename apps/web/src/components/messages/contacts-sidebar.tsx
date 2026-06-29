@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Search, Settings } from "lucide-react";
 import { ContactRow } from "@/components/contacts/contact-row";
+import { PendingRequestsSidebar } from "@/components/friends/pending-requests-sidebar";
 import { SidebarChrome } from "@/components/messages/sidebar-chrome";
 import { useContacts } from "@/contexts/contacts-context";
 
@@ -31,6 +32,8 @@ export function ContactsSidebar({
       </div>
 
       <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-3">
+        <PendingRequestsSidebar />
+
         {contacts.length === 0 ? (
           <div className="mx-1 rounded-2xl border border-[var(--chat-border)] bg-[var(--chat-surface)] p-6 text-center text-sm text-[var(--chat-muted)]">
             <p>No contacts yet.</p>

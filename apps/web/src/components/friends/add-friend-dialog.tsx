@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Plus, Search, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { ChatAvatar } from "@/components/chat/avatar";
+import { useContactsContext } from "@/contexts/contacts-context";
 import { bootstrapAndPrefetchPeer } from "@/lib/e2ee/bootstrap-client";
 import { createClient } from "@/lib/supabase/client";
-import { PendingRequestsPanel } from "./pending-requests-panel";
 
 interface LookupProfile {
   id: string;
@@ -23,7 +22,7 @@ export function AddFriendDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const router = useRouter();
+  const { addOutgoingPending } = useContactsContext();
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -123,6 +122,13 @@ export function AddFriendDialog({
 
     setSuccess("Friend request sent");
     setFriendshipStatus("pending");
+    addOutgoingPending({
+      friendshipId: data.friendshipId,
+      peerId: profile.id,
+      displayName: profile.display_name,
+      publicId: profile.public_id,
+      avatarUrl: profile.avatar_url,
+    });
 
     const supabase = createClient();
     const {
@@ -136,10 +142,6 @@ export function AddFriendDialog({
   function handleBackdropClick(event: React.MouseEvent) {
     if (dialogRef.current?.contains(event.target as Node)) return;
     onClose();
-  }
-
-  function handleRefresh() {
-    router.refresh();
   }
 
   if (!open) return null;
@@ -275,7 +277,6 @@ export function AddFriendDialog({
           )}
         </div>
 
-        <PendingRequestsPanel onResponded={handleRefresh} />
       </div>
     </div>,
     document.body,

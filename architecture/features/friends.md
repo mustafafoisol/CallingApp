@@ -56,7 +56,8 @@ See [remove-and-block-friends.md](../plans/phase2/remove-and-block-friends.md).
 | File | Role |
 |------|------|
 | `apps/web/src/components/friends/add-friend-dialog.tsx` | Modal: lookup + send request |
-| `apps/web/src/components/friends/pending-requests-panel.tsx` | Incoming pending list (inside dialog) |
+| `apps/web/src/components/friends/pending-requests-sidebar.tsx` | Sidebar pending requests (incoming + outgoing) |
+| `apps/web/src/lib/events/parse-user-event.ts` | Parse typed `user_events` rows |
 | `apps/web/src/components/messages/sidebar-chrome.tsx` | `+` button opens dialog; `?addFriend=1` deep link |
 | `apps/web/src/app/(app)/friends/add/page.tsx` | Redirect → `/home?addFriend=1` |
 | `apps/web/src/app/api/friends/lookup/route.ts` | Find user by public ID |
@@ -139,6 +140,7 @@ See [data-model-and-security.md](./data-model-and-security.md).
 | Remove friend | [remove-and-block-friends.md](../plans/phase2/remove-and-block-friends.md) |
 | Block / unblock | [remove-and-block-friends.md](../plans/phase2/remove-and-block-friends.md) |
 | Outgoing request list | Query `status=pending` where `requester_id = me` |
-| Realtime pending notifications | Subscribe to `friendships` INSERT where `addressee_id = me` |
-| Realtime accept (requester) | **Shipped** — `friendships` in `supabase_realtime`; `ContactsProvider` reloads list + browser notification when `status` → `accepted` and user is requester |
+| Realtime pending notifications | **Shipped** — typed `add-friend` / `sent` events on `user_events` via `contacts:{userId}` channel |
+| Realtime accept (requester) | **Shipped** — `add-friend` / `accepted` event reloads contacts + prefetches peer key |
+| Realtime ignore (requester) | **Shipped** — `add-friend` / `ignored` clears outgoing pending row |
 | E2EE key exchange after accept | See [e2ee-friend-to-message-journey.md](../feature-tests/chat/e2ee-friend-to-message-journey.md) — prefetch on accept for both sides via `bootstrapAndPrefetchPeer` |

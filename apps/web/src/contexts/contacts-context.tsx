@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -15,10 +16,18 @@ import {
   REMOVED_MESSAGE_LABEL,
   type MessageRow,
 } from "@/lib/chat/messages";
-import { subscribeToFriendshipAccepted } from "@/lib/contacts/friendship-accepted-realtime";
 import { loadContacts, type Contact } from "@/lib/contacts/load-contacts";
+import {
+  loadIncomingPending,
+  loadOutgoingPending,
+} from "@/lib/contacts/load-pending";
+import type {
+  IncomingPendingRequest,
+  OutgoingPendingRequest,
+} from "@/lib/contacts/pending-types";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
 import { bootstrapAndPrefetchPeer } from "@/lib/e2ee/bootstrap-client";
+import { parseUserEventRow } from "@/lib/events/parse-user-event";
 import {
   maybeShowFriendAcceptedNotification,
   maybeShowMessageNotification,
@@ -26,7 +35,18 @@ import {
 import { playMessageSound } from "@/lib/notifications/message-sound";
 import { shouldPlayMessageSound } from "@/lib/notifications/should-play-message-sound";
 
-const ContactsContext = createContext<Contact[]>([]);
+interface ContactsContextValue {
+  contacts: Contact[];
+  incomingPending: IncomingPendingRequest[];
+  outgoingPending: OutgoingPendingRequest[];
+  addOutgoingPending: (request: OutgoingPendingRequest) => void;
+  refreshContacts: () => Promise<void>;
+  refreshPending: () => Promise<void>;
+  removeIncomingPending: (friendshipId: string) => void;
+  removeOutgoingPending: (friendshipId: string) => void;
+}
+
+const ContactsContext = createContext<ContactsContextValue | null>(null);
 
 function messagePreview(message: MessageRow): string {
   if (message.removed_at) return REMOVED_MESSAGE_LABEL;
@@ -54,6 +74,12 @@ export function ContactsProvider({
   children: ReactNode;
 }) {
   const [contacts, setContacts] = useState(initialContacts);
+  const [incomingPending, setIncomingPending] = useState<IncomingPendingRequest[]>(
+    [],
+  );
+  const [outgoingPending, setOutgoingPending] = useState<OutgoingPendingRequest[]>(
+    [],
+  );
   const contactsRef = useRef(contacts);
   const activeConversationIdRef = useRef(activeConversationId);
 
@@ -68,6 +94,47 @@ export function ContactsProvider({
   useEffect(() => {
     setContacts(initialContacts);
   }, [initialContacts]);
+
+  const refreshContacts = useCallback(async () => {
+    const supabase = createClient();
+    const nextContacts = await loadContacts(supabase, currentUserId);
+    setContacts(nextContacts);
+  }, [currentUserId]);
+
+  const refreshPending = useCallback(async () => {
+    const supabase = createClient();
+    const [incoming, outgoing] = await Promise.all([
+      loadIncomingPending(supabase, currentUserId),
+      loadOutgoingPending(supabase, currentUserId),
+    ]);
+    setIncomingPending(incoming);
+    setOutgoingPending(outgoing);
+  }, [currentUserId]);
+
+  const addOutgoingPending = useCallback((request: OutgoingPendingRequest) => {
+    setOutgoingPending((prev) => {
+      if (prev.some((item) => item.friendshipId === request.friendshipId)) {
+        return prev;
+      }
+      return [...prev, request];
+    });
+  }, []);
+
+  const removeIncomingPending = useCallback((friendshipId: string) => {
+    setIncomingPending((prev) =>
+      prev.filter((item) => item.friendshipId !== friendshipId),
+    );
+  }, []);
+
+  const removeOutgoingPending = useCallback((friendshipId: string) => {
+    setOutgoingPending((prev) =>
+      prev.filter((item) => item.friendshipId !== friendshipId),
+    );
+  }, []);
+
+  useEffect(() => {
+    void refreshPending();
+  }, [refreshPending]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -92,6 +159,55 @@ export function ContactsProvider({
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let cancelled = false;
+
+    async function handleAddFriendEvent(
+      event: NonNullable<ReturnType<typeof parseUserEventRow>>,
+    ) {
+      const payload = event.payload;
+
+      if (event.status === "sent") {
+        setIncomingPending((prev) => {
+          if (prev.some((item) => item.friendshipId === payload.friendship_id)) {
+            return prev;
+          }
+          return [
+            ...prev,
+            {
+              friendshipId: payload.friendship_id,
+              peerId: payload.peer_id,
+              displayName: payload.peer_display_name,
+              publicId: payload.peer_public_id,
+              avatarUrl: payload.peer_avatar_url,
+            },
+          ];
+        });
+        await bootstrapAndPrefetchPeer(currentUserId, payload.peer_id);
+        return;
+      }
+
+      if (event.status === "ignored") {
+        removeOutgoingPending(payload.friendship_id);
+        return;
+      }
+
+      if (event.status === "accepted") {
+        removeOutgoingPending(payload.friendship_id);
+        await refreshContacts();
+        await bootstrapAndPrefetchPeer(currentUserId, payload.peer_id);
+
+        const friendName = payload.peer_display_name ?? "New friend";
+        const chatUrl = payload.conversation_id
+          ? `/chat/${payload.conversation_id}`
+          : "/home";
+
+        maybeShowFriendAcceptedNotification({
+          friendshipId: payload.friendship_id,
+          friendName,
+          iconUrl: payload.peer_avatar_url,
+          chatUrl,
+        });
+      }
+    }
 
     async function subscribe() {
       const {
@@ -157,6 +273,22 @@ export function ContactsProvider({
             });
           },
         )
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "user_events",
+            filter: `recipient_id=eq.${currentUserId}`,
+          },
+          (payload) => {
+            const event = parseUserEventRow(payload.new);
+            if (!event) return;
+            void handleAddFriendEvent(event).catch((error) => {
+              console.error("[contacts] add-friend event failed", error);
+            });
+          },
+        )
         .subscribe();
     }
 
@@ -166,39 +298,11 @@ export function ContactsProvider({
       cancelled = true;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [activeConversationId, currentUserId]);
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    return subscribeToFriendshipAccepted(supabase, currentUserId, (event) => {
-      void (async () => {
-        try {
-          const nextContacts = await loadContacts(supabase, currentUserId);
-          setContacts(nextContacts);
-
-          const contact = nextContacts.find(
-            (item) => item.friendshipId === event.friendshipId,
-          );
-          const friendName = contact?.friend.display_name ?? "New friend";
-          const chatUrl = contact?.conversationId
-            ? `/chat/${contact.conversationId}`
-            : "/home";
-
-          maybeShowFriendAcceptedNotification({
-            friendshipId: event.friendshipId,
-            friendName,
-            iconUrl: contact?.friend.avatar_url ?? null,
-            chatUrl,
-          });
-
-          await bootstrapAndPrefetchPeer(currentUserId, event.friendId);
-        } catch (error) {
-          console.error("[contacts] friendship accepted refresh failed", error);
-        }
-      })();
-    });
-  }, [currentUserId]);
+  }, [
+    currentUserId,
+    refreshContacts,
+    removeOutgoingPending,
+  ]);
 
   const totalUnread = useMemo(
     () => contacts.reduce((sum, contact) => sum + contact.unreadCount, 0),
@@ -210,13 +314,42 @@ export function ContactsProvider({
       totalUnread > 0 ? `(${totalUnread}) CallingApp` : "CallingApp";
   }, [totalUnread]);
 
+  const value = useMemo(
+    () => ({
+      contacts,
+      incomingPending,
+      outgoingPending,
+      addOutgoingPending,
+      refreshContacts,
+      refreshPending,
+      removeIncomingPending,
+      removeOutgoingPending,
+    }),
+    [
+      contacts,
+      incomingPending,
+      outgoingPending,
+      addOutgoingPending,
+      refreshContacts,
+      refreshPending,
+      removeIncomingPending,
+      removeOutgoingPending,
+    ],
+  );
+
   return (
-    <ContactsContext.Provider value={contacts}>
-      {children}
-    </ContactsContext.Provider>
+    <ContactsContext.Provider value={value}>{children}</ContactsContext.Provider>
   );
 }
 
+export function useContactsContext() {
+  const value = useContext(ContactsContext);
+  if (!value) {
+    throw new Error("useContactsContext must be used within ContactsProvider");
+  }
+  return value;
+}
+
 export function useContacts() {
-  return useContext(ContactsContext);
+  return useContactsContext().contacts;
 }
