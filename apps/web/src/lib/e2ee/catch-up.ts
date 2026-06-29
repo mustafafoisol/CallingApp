@@ -20,8 +20,12 @@ export async function catchUpEnvelopes(
 
   let processed = 0;
   for (const row of (data ?? []) as MessageEnvelopeRow[]) {
-    const result = await processEnvelope(supabase, vault, row);
-    if (!result.skipped) processed += 1;
+    try {
+      const result = await processEnvelope(supabase, vault, row);
+      if (!result.skipped) processed += 1;
+    } catch (err) {
+      console.error("[e2ee] catch-up skipped envelope", row.id, err);
+    }
   }
   return processed;
 }

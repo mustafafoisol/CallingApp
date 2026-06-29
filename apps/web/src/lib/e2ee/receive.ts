@@ -3,7 +3,11 @@ import { buildAad, decryptMessage } from "@calling-app/core";
 
 import type { CallingAppVault } from "@/lib/vault/schema";
 import { type MessageEnvelopeRow, toEncryptedEnvelope } from "./envelope";
-import { ensureConversationKey, loadConversationKey } from "./key-exchange";
+import {
+  ensureConversationKey,
+  loadConversationKey,
+  tryFetchPeerCryptoKey,
+} from "./key-exchange";
 
 export interface ProcessEnvelopeResult {
   messageId: string;
@@ -28,6 +32,20 @@ export async function processEnvelope(
       messageId: row.id,
       body: existing.body,
       createdAt: existing.createdAt,
+      skipped: true,
+    };
+  }
+
+  const senderKey = await tryFetchPeerCryptoKey(supabase, row.sender_id);
+  if (
+    senderKey &&
+    row.sender_key_generation < senderKey.key_generation
+  ) {
+    await supabase.from("message_envelopes").delete().eq("id", row.id);
+    return {
+      messageId: row.id,
+      body: "",
+      createdAt: row.created_at,
       skipped: true,
     };
   }
