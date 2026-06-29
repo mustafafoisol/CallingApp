@@ -194,6 +194,7 @@ export function ChatView({
         }
         const loaded = await loadVaultMessages(conversationId, INITIAL_MESSAGE_LIMIT);
         const hydrated = await hydrateVaultImageMessages(
+          supabase,
           vault,
           conversationId,
           loaded,
@@ -256,6 +257,7 @@ export function ChatView({
       let attachmentUrl: string | null = null;
       if (row.type === "image") {
         attachmentUrl = await resolveImageDisplayUrl(
+          supabase,
           vault,
           result.messageId,
           row.conversation_id,
@@ -336,8 +338,10 @@ export function ChatView({
         oldest,
         OLDER_MESSAGE_PAGE_SIZE,
       );
+      const supabase = createClient();
       const vault = await openVault(currentUserId);
       const hydrated = await hydrateVaultImageMessages(
+        supabase,
         vault,
         conversationId,
         older,
@@ -449,6 +453,8 @@ export function ChatView({
   }
 
   async function sendImage(file: File, existingClientId?: string) {
+    if (!vaultReady || !friendId) return;
+
     const clientId = existingClientId ?? crypto.randomUUID();
     let previewUrl: string | null = null;
 
@@ -477,7 +483,7 @@ export function ChatView({
     try {
       const compressed = await compressImageForChat(file);
       const supabase = createClient();
-      const attachmentUrl = await uploadChatImage(
+      const storagePath = await uploadChatImage(
         supabase,
         compressed,
         conversationId,
@@ -488,14 +494,15 @@ export function ChatView({
         recipientId: friendId,
         senderId: currentUserId,
         messageId: clientId,
-        imageUrl: attachmentUrl,
+        imageRef: storagePath,
         localBlob: compressed,
       });
       const displayUrl = await resolveImageDisplayUrl(
+        supabase,
         vault,
         clientId,
         conversationId,
-        attachmentUrl,
+        storagePath,
       );
       imageObjectUrlsRef.current.add(displayUrl);
 
@@ -520,14 +527,18 @@ export function ChatView({
         createdAt: result.createdAt,
       });
     } catch (err) {
+      console.error("[chat] image send failed", err);
       setMessages((prev) => markMessageFailed(prev, clientId));
       if (!existingClientId) {
-        const message =
+        const raw =
           err instanceof ImageCompressionError
             ? err.message
             : err instanceof Error
-              ? formatSendError(err.message)
+              ? err.message
               : "Could not send image.";
+        const message = raw.includes("Bucket not found")
+          ? "Image storage is not configured on the server."
+          : formatSendError(raw);
         setSendError(message);
       }
     } finally {

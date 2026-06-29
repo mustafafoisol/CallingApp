@@ -29,6 +29,5 @@ export async function uploadChatImage(
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  return path;
 }

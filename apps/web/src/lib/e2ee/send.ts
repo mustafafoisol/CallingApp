@@ -30,7 +30,7 @@ export interface SendEncryptedImageParams {
   recipientId: string;
   senderId: string;
   messageId: string;
-  imageUrl: string;
+  imageRef: string;
   localBlob: Blob;
 }
 
@@ -115,7 +115,7 @@ export async function sendEncryptedImage(
   vault: CallingAppVault,
   params: SendEncryptedImageParams,
 ): Promise<SendEncryptedTextResult> {
-  const { conversationId, recipientId, senderId, messageId, imageUrl, localBlob } =
+  const { conversationId, recipientId, senderId, messageId, imageRef, localBlob } =
     params;
 
   const identity = await vault.device_identity.get(DEVICE_IDENTITY_KEY);
@@ -143,7 +143,7 @@ export async function sendEncryptedImage(
   });
   const encrypted = await encryptMessage(
     ck,
-    new TextEncoder().encode(imageUrl),
+    new TextEncoder().encode(imageRef),
     aad,
   );
   const createdAt = new Date().toISOString();
@@ -174,7 +174,7 @@ export async function sendEncryptedImage(
     id: messageId,
     conversationId,
     senderId,
-    body: imageUrl,
+    body: imageRef,
     type: "image",
     attachmentId: null,
     createdAt,

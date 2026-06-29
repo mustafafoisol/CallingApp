@@ -1,5 +1,13 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import type { MessageRow } from "@/lib/chat/messages";
 import type { CallingAppVault } from "@/lib/vault/schema";
+
+const CHAT_MEDIA_BUCKET = "chat-media";
+
+function isHttpUrl(ref: string): boolean {
+  return ref.startsWith("http://") || ref.startsWith("https://");
+}
 
 export async function cacheAttachmentBlob(
   vault: CallingAppVault,
@@ -15,44 +23,59 @@ export async function cacheAttachmentBlob(
   });
 }
 
-export async function cacheAttachmentFromUrl(
+export async function cacheAttachmentFromRef(
+  supabase: SupabaseClient,
   vault: CallingAppVault,
   messageId: string,
   conversationId: string,
-  url: string,
+  ref: string,
 ): Promise<Blob> {
   const existing = await vault.attachments_cache.get(messageId);
   if (existing) return existing.blob;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image (${response.status})`);
+  let blob: Blob;
+  if (isHttpUrl(ref)) {
+    const response = await fetch(ref);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image (${response.status})`);
+    }
+    blob = await response.blob();
+  } else {
+    const { data, error } = await supabase.storage
+      .from(CHAT_MEDIA_BUCKET)
+      .download(ref);
+    if (error || !data) {
+      throw new Error(error?.message ?? "Failed to download image");
+    }
+    blob = data;
   }
 
-  const blob = await response.blob();
   await cacheAttachmentBlob(vault, messageId, conversationId, blob);
   return blob;
 }
 
 export async function resolveImageDisplayUrl(
+  supabase: SupabaseClient,
   vault: CallingAppVault,
   messageId: string,
   conversationId: string,
-  remoteUrl: string,
+  ref: string,
 ): Promise<string> {
   const cached = await vault.attachments_cache.get(messageId);
   if (cached) return URL.createObjectURL(cached.blob);
 
-  const blob = await cacheAttachmentFromUrl(
+  const blob = await cacheAttachmentFromRef(
+    supabase,
     vault,
     messageId,
     conversationId,
-    remoteUrl,
+    ref,
   );
   return URL.createObjectURL(blob);
 }
 
 export async function hydrateVaultImageMessages(
+  supabase: SupabaseClient,
   vault: CallingAppVault,
   conversationId: string,
   messages: MessageRow[],
@@ -62,6 +85,7 @@ export async function hydrateVaultImageMessages(
       if (message.type !== "image" || !message.attachment_url) return message;
       try {
         const displayUrl = await resolveImageDisplayUrl(
+          supabase,
           vault,
           message.id,
           conversationId,
