@@ -4,11 +4,21 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { createClient } from "@/lib/supabase/client";
 import { dayKey, formatDayLabel } from "@/lib/chat/format-time";
 import {
-  fetchOlderMessages,
   INITIAL_MESSAGE_LIMIT,
   OLDER_MESSAGE_PAGE_SIZE,
   type MessageRow,
 } from "@/lib/chat/messages";
+import {
+  loadOlderVaultMessages,
+  loadVaultMessages,
+} from "@/lib/chat/vault-messages";
+import { ensureDeviceIdentity } from "@/lib/e2ee/bootstrap";
+import { catchUpEnvelopes } from "@/lib/e2ee/catch-up";
+import { type MessageEnvelopeRow } from "@/lib/e2ee/envelope";
+import { ensureConversationKey } from "@/lib/e2ee/key-exchange";
+import { processEnvelope } from "@/lib/e2ee/receive";
+import { sendEncryptedText } from "@/lib/e2ee/send";
+import { openVault } from "@/lib/vault/store";
 import {
   compressImageForChat,
   ImageCompressionError,
@@ -41,7 +51,7 @@ export function ChatView({
   friendName,
   canMessage = true,
   friendAvatarUrl,
-  initialMessages,
+  initialMessages = [],
   initialHiddenMessageIds = [],
 }: {
   conversationId: string;
@@ -51,12 +61,14 @@ export function ChatView({
   friendName: string;
   canMessage?: boolean;
   friendAvatarUrl?: string | null;
-  initialMessages: MessageRow[];
+  initialMessages?: MessageRow[];
   initialHiddenMessageIds?: string[];
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(
     initialMessages.map((message) => ({ ...message, status: "confirmed" })),
   );
+  const [vaultReady, setVaultReady] = useState(false);
+  const [vaultError, setVaultError] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<string>("connecting");
@@ -102,21 +114,6 @@ export function ChatView({
     [currentUserId, markRead],
   );
 
-  const applyMessageUpdate = useCallback((row: MessageRow) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === row.id
-          ? {
-              ...m,
-              ...row,
-              body: row.removed_at ? "" : row.body,
-              status: "confirmed",
-            }
-          : m,
-      ),
-    );
-  }, []);
-
   const isHidden = useCallback((messageId: string) => {
     return hiddenMessageIdsRef.current.has(messageId);
   }, []);
@@ -128,6 +125,37 @@ export function ChatView({
   useEffect(() => {
     markRead();
   }, [markRead]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initVault() {
+      setVaultError(null);
+      try {
+        const supabase = createClient();
+        const vault = await openVault(currentUserId);
+        await ensureDeviceIdentity(supabase, vault, currentUserId);
+        await ensureConversationKey(vault, supabase, conversationId, friendId);
+        await catchUpEnvelopes(supabase, vault, currentUserId);
+        const loaded = await loadVaultMessages(conversationId, INITIAL_MESSAGE_LIMIT);
+        if (cancelled) return;
+        setMessages(loaded.map((message) => ({ ...message, status: "confirmed" })));
+        setHasMore(loaded.length >= INITIAL_MESSAGE_LIMIT);
+        setVaultReady(true);
+      } catch (err) {
+        if (!cancelled) {
+          setVaultError(
+            err instanceof Error ? err.message : "Could not open encrypted chat.",
+          );
+        }
+      }
+    }
+
+    void initVault();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, currentUserId, friendId]);
 
   useEffect(() => {
     if (pendingScrollRestore.current && scrollContainerRef.current) {
@@ -162,30 +190,30 @@ export function ChatView({
       }
 
       channel = supabase
-        .channel(`messages:${conversationId}`)
+        .channel(`envelopes:${conversationId}`)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
-            table: "messages",
+            table: "message_envelopes",
             filter: `conversation_id=eq.${conversationId}`,
           },
           (payload) => {
-            reconcileMessage(payload.new as MessageRow);
-          },
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "messages",
-            filter: `conversation_id=eq.${conversationId}`,
-          },
-          (payload) => {
-            const row = payload.new as MessageRow;
-            if (row.removed_at) applyMessageUpdate(row);
+            void (async () => {
+              const row = payload.new as MessageEnvelopeRow;
+              if (row.recipient_id !== currentUserId) return;
+              const vault = await openVault(currentUserId);
+              const result = await processEnvelope(supabase, vault, row);
+              if (result.skipped) return;
+              reconcileMessage({
+                id: result.messageId,
+                sender_id: row.sender_id,
+                body: result.body,
+                type: row.type,
+                created_at: result.createdAt,
+              });
+            })().catch((err) => console.error("[chat] envelope receive failed", err));
           },
         )
         .subscribe((status, err) => {
@@ -203,7 +231,7 @@ export function ChatView({
       cancelled = true;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [conversationId, reconcileMessage, applyMessageUpdate]);
+  }, [conversationId, currentUserId, reconcileMessage]);
 
   async function loadOlderMessages() {
     if (loadingOlder || !hasMore || messages.length === 0) return;
@@ -221,11 +249,10 @@ export function ChatView({
     setLoadOlderError(null);
 
     try {
-      const supabase = createClient();
-      const older = await fetchOlderMessages(
-        supabase,
+      const older = await loadOlderVaultMessages(
         conversationId,
         oldest,
+        OLDER_MESSAGE_PAGE_SIZE,
       );
 
       setMessages((prev) => {
@@ -273,36 +300,38 @@ export function ChatView({
 
     setSendError(null);
 
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("messages")
-      .insert({
-        conversation_id: conversationId,
-        sender_id: currentUserId,
+    try {
+      const supabase = createClient();
+      const vault = await openVault(currentUserId);
+      const result = await sendEncryptedText(supabase, vault, {
+        conversationId,
+        recipientId: friendId,
+        senderId: currentUserId,
+        messageId: clientId,
         body: text,
-        type: "text",
-      })
-      .select(
-        "id, sender_id, body, type, attachment_url, created_at, removed_at",
-      )
-      .single();
-
-    if (error) {
+      });
+      scrollToBottomRef.current = true;
+      setMessages((prev) =>
+        confirmPendingMessage(prev, clientId, {
+          id: clientId,
+          sender_id: currentUserId,
+          body: text,
+          type: "text",
+          created_at: result.createdAt,
+        }),
+      );
+    } catch (error) {
       setMessages((prev) => markMessageFailed(prev, clientId));
       if (!existingClientId) {
-        setSendError(formatSendError(error.message));
+        const message = error instanceof Error ? error.message : "Send failed";
+        setSendError(formatSendError(message));
       }
-      return;
-    }
-
-    if (data) {
-      scrollToBottomRef.current = true;
-      setMessages((prev) => confirmPendingMessage(prev, clientId, data));
     }
   }
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
+    if (!vaultReady) return;
     const text = body.trim();
     if (!text) return;
 
@@ -479,7 +508,19 @@ export function ChatView({
           </p>
         )}
 
-        {messages.length === 0 && (
+        {vaultError && (
+          <p className="text-center text-sm text-[var(--danger)]" role="alert">
+            {vaultError}
+          </p>
+        )}
+
+        {!vaultReady && !vaultError && (
+          <p className="text-center text-sm text-[#A8998F]">
+            Loading encrypted messages…
+          </p>
+        )}
+
+        {vaultReady && messages.length === 0 && (
           <p className="text-center text-sm text-[#A8998F]">
             No messages yet. Say hello!
           </p>
@@ -587,7 +628,7 @@ export function ChatView({
         onSubmit={sendMessage}
         onSendImage={(file) => void sendImage(file)}
         sending={sendingImage}
-        disabled={!canMessage}
+        disabled={!canMessage || !vaultReady}
         placeholder={`Message ${friendName.split(" ")[0]}…`}
       />
 
