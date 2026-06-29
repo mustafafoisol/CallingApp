@@ -18,6 +18,7 @@ import { startOutgoingCall } from "@/lib/call/outgoing";
 import {
   acceptCall as acceptCallRow,
   endCall as endCallRow,
+  fetchRingingCallForCallee,
   markCallBusy,
   markCallMissed,
   rejectCall as rejectCallRow,
@@ -194,12 +195,50 @@ export function CallProvider({
     [currentUserId, resetCall],
   );
 
+  const resolveRemoteRef = useRef(resolveRemote);
+  const handleTerminalRef = useRef(handleTerminal);
+  const startCallerSessionRef = useRef(startCallerSession);
+
+  useEffect(() => {
+    resolveRemoteRef.current = resolveRemote;
+    handleTerminalRef.current = handleTerminal;
+    startCallerSessionRef.current = startCallerSession;
+  }, [handleTerminal, resolveRemote, startCallerSession]);
+
   useEffect(() => {
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
     let cancelled = false;
 
-    void (async () => {
+    function presentIncoming(call: CallRecord) {
+      if (call.status !== "ringing" || call.caller_id === currentUserId) return;
+      if (uiStateRef.current !== "idle") {
+        void markCallBusy(supabase, call.id, currentUserId);
+        return;
+      }
+      const remote = resolveRemoteRef.current(call);
+      setActiveCall(call);
+      setRemoteName(remote.name);
+      setRemoteAvatarUrl(remote.avatarUrl);
+      setUiState("incoming");
+      setError(null);
+    }
+
+    async function syncRingingCalls() {
+      if (cancelled || uiStateRef.current !== "idle") return;
+      const ringing = await fetchRingingCallForCallee(supabase, currentUserId);
+      if (ringing) presentIncoming(ringing);
+    }
+
+    async function subscribe() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (cancelled || !session) return;
+
+      await syncRingingCalls();
+
       channel = supabase
         .channel(`calls:${currentUserId}`)
         .on(
@@ -211,30 +250,26 @@ export function CallProvider({
             filter: `callee_id=eq.${currentUserId}`,
           },
           (payload) => {
-            const call = payload.new as CallRecord;
-            if (call.status !== "ringing" || call.caller_id === currentUserId) return;
-            if (uiStateRef.current !== "idle") {
-              void markCallBusy(supabase, call.id, currentUserId);
-              return;
-            }
-            const remote = resolveRemote(call);
-            setActiveCall(call);
-            setRemoteName(remote.name);
-            setRemoteAvatarUrl(remote.avatarUrl);
-            setUiState("incoming");
-            setError(null);
+            presentIncoming(payload.new as CallRecord);
           },
         )
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "calls" },
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "calls",
+            filter: `callee_id=eq.${currentUserId}`,
+          },
           (payload) => {
             const call = payload.new as CallRecord;
-            if (![call.caller_id, call.callee_id].includes(currentUserId)) return;
+            if (call.caller_id !== currentUserId && call.callee_id !== currentUserId) {
+              return;
+            }
             setActiveCall((prev) => (prev?.id === call.id ? call : prev));
 
             if (TERMINAL.includes(call.status)) {
-              handleTerminal(call);
+              handleTerminalRef.current(call);
               return;
             }
 
@@ -244,11 +279,40 @@ export function CallProvider({
               uiStateRef.current === "outgoing" &&
               !sessionRef.current
             ) {
-              void startCallerSession(call);
+              void startCallerSessionRef.current(call);
+            }
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "calls",
+            filter: `caller_id=eq.${currentUserId}`,
+          },
+          (payload) => {
+            const call = payload.new as CallRecord;
+            setActiveCall((prev) => (prev?.id === call.id ? call : prev));
+
+            if (TERMINAL.includes(call.status)) {
+              handleTerminalRef.current(call);
+              return;
+            }
+
+            if (
+              call.status === "accepted" &&
+              uiStateRef.current === "outgoing" &&
+              !sessionRef.current
+            ) {
+              void startCallerSessionRef.current(call);
             }
           },
         )
         .subscribe((status) => {
+          if (process.env.NODE_ENV === "development") {
+            console.log("[call] realtime status:", status);
+          }
           if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
             if (uiStateRef.current === "connected" || uiStateRef.current === "connecting") {
               if (graceTimerRef.current) clearTimeout(graceTimerRef.current);
@@ -262,22 +326,20 @@ export function CallProvider({
             graceTimerRef.current = null;
           }
         });
-    })();
+
+      pollTimer = setInterval(() => {
+        void syncRingingCalls();
+      }, 4000);
+    }
+
+    void subscribe();
 
     return () => {
       cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
       if (channel) void supabase.removeChannel(channel);
-      clearRingTimer();
-      cleanupSession();
     };
-  }, [
-    cleanupSession,
-    clearRingTimer,
-    currentUserId,
-    handleTerminal,
-    resolveRemote,
-    startCallerSession,
-  ]);
+  }, [currentUserId]);
 
   const startCall = useCallback(
     async (

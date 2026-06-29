@@ -55,6 +55,25 @@ async function transition(
   return patchCall(supabase, callId, patch);
 }
 
+export async function fetchRingingCallForCallee(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<CallRecord | null> {
+  const { data, error } = await supabase
+    .from("calls")
+    .select(SELECT)
+    .eq("callee_id", userId)
+    .eq("status", "ringing")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("[call] fetch ringing failed", error);
+    return null;
+  }
+  return data as CallRecord | null;
+}
+
 export async function createCall(
   supabase: SupabaseClient,
   userId: string,
