@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAad, encryptMessage } from "@calling-app/core";
 
+import { recordVaultOutgoingMessage } from "@/lib/contacts/vault-contact-sync";
 import type { CallingAppVault } from "@/lib/vault/schema";
 import { DEVICE_IDENTITY_KEY } from "@/lib/vault/schema";
 import { fetchPeerCryptoKey, deriveCkForMessage } from "./key-exchange";
@@ -93,6 +94,8 @@ export async function sendEncryptedText(
       senderPubkey: identity.identityPublicKey,
     },
   });
+
+  await recordVaultOutgoingMessage(vault, conversationId, body, "text", createdAt);
 
   return { envelopeId: messageId, createdAt };
 }

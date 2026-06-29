@@ -38,6 +38,10 @@ describe("sendEncryptedText", () => {
       messages: {
         put: vi.fn(async () => undefined),
       },
+      conversations: {
+        get: vi.fn(async () => undefined),
+        put: vi.fn(async () => undefined),
+      },
     };
 
     const result = await sendEncryptedText(supabase as never, vault as never, {

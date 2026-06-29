@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAad, decryptMessage } from "@calling-app/core";
 
+import { recordVaultIncomingMessage } from "@/lib/contacts/vault-contact-sync";
+
 import type { CallingAppVault } from "@/lib/vault/schema";
 import {
   parseBytea,
@@ -129,6 +131,15 @@ async function processEnvelopeOnce(
 
   const { error } = await supabase.from("message_envelopes").delete().eq("id", row.id);
   if (error) throw error;
+
+  await recordVaultIncomingMessage(
+    vault,
+    row.conversation_id,
+    body,
+    row.type,
+    createdAt,
+    false,
+  );
 
   return { messageId: row.id, body, createdAt, skipped: false };
 }
