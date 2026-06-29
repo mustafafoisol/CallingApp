@@ -15,9 +15,14 @@ import {
   REMOVED_MESSAGE_LABEL,
   type MessageRow,
 } from "@/lib/chat/messages";
+import { subscribeToFriendshipAccepted } from "@/lib/contacts/friendship-accepted-realtime";
+import { loadContacts, type Contact } from "@/lib/contacts/load-contacts";
 import { markConversationRead } from "@/lib/contacts/mark-conversation-read";
-import type { Contact } from "@/lib/contacts/load-contacts";
-import { maybeShowMessageNotification } from "@/lib/notifications/browser-message-notification";
+import { bootstrapAndPrefetchPeer } from "@/lib/e2ee/bootstrap-client";
+import {
+  maybeShowFriendAcceptedNotification,
+  maybeShowMessageNotification,
+} from "@/lib/notifications/browser-message-notification";
 import { playMessageSound } from "@/lib/notifications/message-sound";
 import { shouldPlayMessageSound } from "@/lib/notifications/should-play-message-sound";
 
@@ -162,6 +167,38 @@ export function ContactsProvider({
       if (channel) void supabase.removeChannel(channel);
     };
   }, [activeConversationId, currentUserId]);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    return subscribeToFriendshipAccepted(supabase, currentUserId, (event) => {
+      void (async () => {
+        try {
+          const nextContacts = await loadContacts(supabase, currentUserId);
+          setContacts(nextContacts);
+
+          const contact = nextContacts.find(
+            (item) => item.friendshipId === event.friendshipId,
+          );
+          const friendName = contact?.friend.display_name ?? "New friend";
+          const chatUrl = contact?.conversationId
+            ? `/chat/${contact.conversationId}`
+            : "/home";
+
+          maybeShowFriendAcceptedNotification({
+            friendshipId: event.friendshipId,
+            friendName,
+            iconUrl: contact?.friend.avatar_url ?? null,
+            chatUrl,
+          });
+
+          await bootstrapAndPrefetchPeer(currentUserId, event.friendId);
+        } catch (error) {
+          console.error("[contacts] friendship accepted refresh failed", error);
+        }
+      })();
+    });
+  }, [currentUserId]);
 
   const totalUnread = useMemo(
     () => contacts.reduce((sum, contact) => sum + contact.unreadCount, 0),
